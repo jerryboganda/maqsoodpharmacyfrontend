@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="%sveltekit.assets%/assets/logo/logomark.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Adminex - Premium Admin Dashboard</title>
+
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('adminex-theme')
+          if (!saved) return
+
+          var config = JSON.parse(saved)
+          var root = document.documentElement
+
+          if (config && config.mode === 'dark') root.classList.add('dark')
+          if (config && config.direction === 'rtl') root.dir = 'rtl'
+
+          var presets = {
+            blue: ['#3b82f6', '#6366f1'],
+            purple: ['#ec4899', '#0ea5e9'],
+            green: ['#22c55e', '#14b8a6'],
+            orange: ['#f97316', '#f59e0b'],
+            red: ['#ef4444', '#f43f5e'],
+            cyan: ['#06b6d4', '#0ea5e9'],
+          }
+
+          if (config && config.color && presets[config.color]) {
+            root.style.setProperty('--theme-primary', presets[config.color][0])
+            root.style.setProperty('--theme-accent', presets[config.color][1])
+          }
+
+          if (config && config.sidebarLayout) root.dataset.sidebarLayout = config.sidebarLayout
+          if (config && config.container) root.dataset.container = config.container
+          if (config && config.cardStyle) root.dataset.cardStyle = config.cardStyle
+        } catch (_) {
+          // Keep the initial document usable when persisted state is invalid.
+        }
+      })()
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Rethink+Sans:ital,wght@0,400..800;1,400..800&display=swap"
+      rel="stylesheet"
+    />
+    %sveltekit.head%
+  </head>
+  <body data-sveltekit-preload-data="hover">
+    <div style="display: contents">%sveltekit.body%</div>
+  </body>
+</html>
