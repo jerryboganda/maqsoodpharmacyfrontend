@@ -8,7 +8,7 @@
   type QueryResult = ReturnType<typeof executeQuery<Record<string, unknown>>>
   type InputEventWithTarget = Event & { currentTarget: HTMLInputElement | HTMLSelectElement }
 
-  const sampleData: Record<string, unknown>[] = [
+  const flatSampleData = [
     { id: 1, name: 'John Doe', email: 'john@example.com', status: 'active', age: 28, role: 'admin', createdAt: '2024-01-15' },
     { id: 2, name: 'Jane Smith', email: 'jane@example.com', status: 'active', age: 34, role: 'user', createdAt: '2024-02-20' },
     { id: 3, name: 'Bob Wilson', email: 'bob@example.com', status: 'inactive', age: 45, role: 'user', createdAt: '2024-01-10' },
@@ -18,6 +18,44 @@
     { id: 7, name: 'Edward Foster', email: 'edward@example.com', status: 'inactive', age: 38, role: 'user', createdAt: '2024-03-10' },
     { id: 8, name: 'Fiona Green', email: 'fiona@example.com', status: 'active', age: 26, role: 'user', createdAt: '2024-02-14' },
   ]
+  const orderStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded']
+  const regions = ['NA', 'EU', 'APAC', 'LATAM', 'MEA']
+  const productCategories = ['electronics', 'clothing', 'home', 'sports', 'books']
+  const sampleData: Record<string, unknown>[] = flatSampleData.map((record, index) => ({
+    ...record,
+    user: {
+      id: record.id,
+      name: record.name,
+      email: record.email,
+      role: record.role === 'moderator' ? 'manager' : record.role,
+      status: record.status,
+      createdAt: record.createdAt,
+      loginCount: (index + 1) * 3,
+    },
+    order: {
+      id: 1001 + index,
+      total: 75 + index * 52.5,
+      status: orderStatuses[index % orderStatuses.length],
+      items: index + 1,
+      date: record.createdAt,
+      region: regions[index % regions.length],
+    },
+    product: {
+      id: 2001 + index,
+      name: `Product ${index + 1}`,
+      price: 25 + index * 18.75,
+      stock: 12 + index * 7,
+      category: productCategories[index % productCategories.length],
+      rating: Number((3.5 + (index % 4) * 0.4).toFixed(1)),
+    },
+    analytics: {
+      pageViews: 1200 + index * 175,
+      sessions: 720 + index * 95,
+      bounceRate: 28 + index * 2.5,
+      conversionRate: Number((2.1 + index * 0.35).toFixed(2)),
+      revenue: 4500 + index * 825,
+    },
+  }))
 
   let query: Query = createEmptyQuery()
   let result: QueryResult | null = null

@@ -4,6 +4,9 @@ import { createEmptyQuery, validateQuery, executeQuery } from '../features/query
 import { createEmptyWorkflow, validateWorkflow } from '../features/workflow-builder/engine'
 import { calculateTrend, calculateMovingAverage } from '../features/real-time-simulation/engine'
 import { processTemplate } from '../features/notification-pipeline/engine'
+import { analyzeTrend } from '../features/smart-insights/engine'
+import { createEmptyStateMachine, validateStateMachine } from '../features/approval-engine/engine'
+import { createDependency, createTask, topologicalSort, validateSchedule } from '../features/task-scheduler/engine'
 
 describe('preserved Adminex feature engines', () => {
   it('creates and validates a rule without React', () => {
@@ -38,5 +41,33 @@ describe('preserved Adminex feature engines', () => {
   it('preserves notification template substitution', () => {
     const template = { titleTemplate: 'Hello {{name}}', messageTemplate: 'Welcome {{name}}', variables: [] } as any
     expect(processTemplate(template, { name: 'Faisal' })).toEqual({ title: 'Hello Faisal', message: 'Welcome Faisal' })
+  })
+
+  it('keeps smart-insight trend analysis deterministic', () => {
+    const trend = analyzeTrend([
+      { timestamp: 1, value: 10 },
+      { timestamp: 2, value: 20 },
+      { timestamp: 3, value: 30 },
+      { timestamp: 4, value: 40 },
+    ])
+    expect(trend).toMatchObject({ direction: 'up', slope: 10, rSquared: 1, changePercent: 300 })
+  })
+
+  it('creates a valid approval state machine with its preserved warning contract', () => {
+    const machine = createEmptyStateMachine('Order approval')
+    const validation = validateStateMachine(machine)
+    expect(validation.isValid).toBe(true)
+    expect(validation.errors).toEqual([])
+    expect(validation.warnings.map((warning) => warning.code)).toEqual(['NO_FINAL_STATE', 'DEAD_END_STATE'])
+  })
+
+  it('orders and validates scheduled tasks by dependency', () => {
+    const prerequisite = createTask('Prepare inventory')
+    const dependent = createTask('Publish inventory', {
+      dependencies: [createDependency('publish', prerequisite.id)],
+    })
+    dependent.id = 'publish'
+    expect(topologicalSort([dependent, prerequisite])).toEqual([prerequisite.id, dependent.id])
+    expect(validateSchedule([prerequisite, dependent])).toMatchObject({ isValid: true, errors: [], conflicts: [] })
   })
 })

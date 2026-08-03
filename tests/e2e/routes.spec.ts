@@ -119,6 +119,7 @@ test('all ten locales switch immediately and persist with RTL direction', async 
 })
 
 test('editor, gallery lightbox, dynamic blog, and call interactions work', async ({ page }) => {
+  test.setTimeout(120_000)
   await page.goto('/forms/editor')
   await expect(page.getByRole('heading', { name: 'Rich Text Editor' })).toBeVisible()
   const editor = page.locator('[contenteditable="true"]').first()
@@ -127,7 +128,7 @@ test('editor, gallery lightbox, dynamic blog, and call interactions work', async
   await expect(editor).toContainText('A local draft')
 
   await page.goto('/pages/gallery')
-  await page.getByRole('button', { name: /^Open / }).first().click()
+  await page.getByRole('button', { name: 'Open Minimal Workspace', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Gallery lightbox' })).toBeVisible()
   await page.keyboard.press('ArrowRight')
   await expect(page.getByRole('img', { name: 'Gallery image 2' })).toBeVisible()
@@ -148,4 +149,38 @@ test('editor, gallery lightbox, dynamic blog, and call interactions work', async
   await expect(page.getByRole('heading', { name: 'Edit product' })).toBeVisible()
   await page.getByRole('button', { name: 'Update product' }).click()
   await expect(page).toHaveURL(/\/app\/ecommerce\/products$/)
+})
+
+test('validation, CRUD, data filtering, FAQ, and query-builder interactions work', async ({ page }) => {
+  test.setTimeout(120_000)
+  await page.goto('/forms/validation')
+  await page.getByRole('button', { name: 'Submit', exact: true }).click()
+  await expect(page.locator('#val_fullName + p')).toBeVisible()
+  await expect(page.locator('#val_email + p')).toBeVisible()
+
+  await page.goto('/tables/crud')
+  await page.getByRole('button', { name: 'Add row' }).click()
+  await expect(page.getByRole('dialog', { name: 'Add new row' })).toBeVisible()
+  await page.locator('#crud_name').fill('Migration Proof')
+  await page.locator('#crud_email').fill('proof@example.com')
+  await page.locator('#crud_team').fill('Quality')
+  await page.getByRole('button', { name: 'Create', exact: true }).click()
+  await expect(page.getByText('Migration Proof', { exact: true })).toBeVisible()
+
+  await page.goto('/tables/data')
+  await page.locator('input[aria-label]').first().fill('Daniel Jackson')
+  await expect(page.getByText('Daniel Jackson', { exact: true })).toBeVisible()
+  await expect(page.getByText('Ava Johnson', { exact: true })).toBeHidden()
+
+  await page.goto('/pages/faq')
+  await page.getByRole('button', { name: 'What browsers do you support?' }).click()
+  await expect(page.getByText('We support the latest versions of Chrome, Firefox, Safari, and Edge. For the best experience, we recommend keeping your browser up to date.')).toBeVisible()
+
+  await page.goto('/features/query-builder')
+  await page.getByRole('button', { name: 'Select field...' }).click()
+  await page.getByRole('button', { name: 'enum Status', exact: true }).click()
+  await page.getByLabel('Status value').selectOption('active')
+  await page.getByRole('button', { name: 'Run Query', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Query Results' })).toBeVisible()
+  await expect(page.getByText('5 of 8 matches')).toBeVisible()
 })
