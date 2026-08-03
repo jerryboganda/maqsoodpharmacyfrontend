@@ -5,6 +5,13 @@ export interface NavItem { path: string; label: string; icon: string; badge?: st
 export interface NavGroup { title: string; items: NavItem[] }
 
 export const navGroups: NavGroup[] = [
+  { title: 'Pharmacy', items: [
+    { path: '/pharmacy', label: 'Overview', icon: Icons.dashboard },
+    { path: '/pharmacy/inventory', label: 'Inventory', icon: Icons.package, children: [{ path: '/pharmacy/inventory', label: 'Stock & Lots' }, { path: '/pharmacy/inventory/adjustments', label: 'Adjustments' }] },
+    { path: '/pharmacy/purchasing/suppliers', label: 'Purchasing', icon: Icons.truck, children: [{ path: '/pharmacy/purchasing/suppliers', label: 'Suppliers' }, { path: '/pharmacy/purchasing/invoices', label: 'Purchase Invoices' }] },
+    { path: '/pharmacy/sales/customers', label: 'Sales', icon: Icons.database, children: [{ path: '/pharmacy/sales/customers', label: 'Customers' }, { path: '/pharmacy/sales/invoices', label: 'Sale Invoices' }] },
+    { path: '/pharmacy/settings/options', label: 'Settings', icon: Icons.settings },
+  ] },
   { title: 'Dashboards', items: [
     { path: '/dashboard', label: 'Overview', icon: Icons.dashboard },
     { path: '/dashboard/analytics', label: 'Analytics', icon: Icons.chartLine, badge: 'New' },

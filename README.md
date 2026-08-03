@@ -41,6 +41,40 @@ src/styles/             Preserved Adminex design tokens and CSS
 src/types/              Preserved shared TypeScript types
 ```
 
+## Pharmacy platform integration
+
+This repo is the frontend for the pharmacy-platform rebuild (backend: the sibling `rebuild`
+repo, https://github.com/jerryboganda/maqsoodpharmacysoftware). The Adminex template above is
+the design system; the actual pharmacy screens live under `src/lib/components/pharmacy/` and
+`src/routes/pharmacy/`, wired to the real NestJS API via `src/lib/api/`.
+
+```bash
+cp .env.example .env   # set PUBLIC_API_BASE_URL if the backend isn't on localhost:3000
+npm install
+npm run dev            # then open http://localhost:5173/pharmacy/login
+```
+
+Screens (all against real endpoints, no mock data):
+- `/pharmacy` -- dashboard KPIs (item/stock counts, pending approvals, today's sales)
+- `/pharmacy/inventory` -- stock levels + stock lots
+- `/pharmacy/inventory/adjustments` -- create/approve/post stock adjustments
+- `/pharmacy/purchasing/suppliers`, `/pharmacy/purchasing/invoices`
+- `/pharmacy/sales/customers`, `/pharmacy/sales/invoices` (cash-sale/POS flow)
+- `/pharmacy/settings/options` -- generic P1 option-list viewer
+
+**Dev-mode auth**: the backend's session guard has no real credential check yet (see
+`rebuild/apps/api/src/common/auth/session.guard.ts`) -- `/pharmacy/login` calls the real
+`/identity/me` endpoint and resolves the seeded `dev.owner` user regardless of what's typed in
+the password field. This is documented in the login page itself, not hidden.
+
+**Rule M** (money/quantity fields are decimal strings end to end, never a JS number) applies here
+too -- see `src/lib/api/types.ts`'s header comment and `src/lib/components/pharmacy/shared/
+DecimalInput.svelte`. `src/lib/api/format.ts` is the one place `Number()` is allowed, for
+display only.
+
+**CI**: this repo follows the same hard rule as the backend -- heavy compute (install, typecheck,
+lint, unit tests, e2e, build) runs in `.github/workflows/ci.yml`, not locally. See `CLAUDE.md`.
+
 ## License
 
 This item is licensed under the Envato Market License. See [LICENSE.txt](LICENSE.txt).
