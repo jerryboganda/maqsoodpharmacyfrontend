@@ -37,7 +37,8 @@
           <div><h2 class="text-lg font-semibold text-secondary-900 dark:text-white">{t('dashboard.top_products')}</h2><p class="text-sm text-secondary-500 dark:text-secondary-400">{t('dashboard.best_selling_items')}</p></div>
           <button type="button" class="text-sm text-theme-primary font-medium hover:underline flex items-center gap-1">{t('dashboard.view_all')} <Icon icon={Icons.chevronRight} width={16} height={16} /></button>
         </div>
-        <div class="overflow-x-auto">
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+        <div class="overflow-x-auto" tabindex="0" role="region" aria-label={t('dashboard.top_products')}>
           <table class="w-full">
             <thead class="bg-surface-50 dark:bg-surface-800/50">
               <tr>

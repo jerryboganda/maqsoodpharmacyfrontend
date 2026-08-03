@@ -302,7 +302,8 @@
   {/if}
 
   <div class="card rounded-xl p-0 overflow-hidden">
-    <div class="overflow-x-auto">
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Purchase invoices table">
       <table class="w-full">
         <thead class="bg-surface-50 dark:bg-surface-900/30">
           <tr>
@@ -421,7 +422,8 @@
       <div>
         <h3 class="text-sm font-semibold text-secondary-900 dark:text-white mb-3">Line items</h3>
         <div class="rounded-xl overflow-hidden border border-secondary-200 dark:border-secondary-700">
-          <div class="overflow-x-auto">
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+          <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Purchase invoice line items table">
             <table class="w-full">
               <thead class="bg-surface-50 dark:bg-surface-900/30">
                 <tr>

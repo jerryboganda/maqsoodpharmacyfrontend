@@ -270,7 +270,8 @@
   {/if}
 
   <div class="card rounded-xl p-0 overflow-hidden">
-    <div class="overflow-x-auto">
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Stock adjustments table">
       <table class="w-full">
         <thead class="bg-surface-50 dark:bg-surface-900/30">
           <tr>

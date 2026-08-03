@@ -155,7 +155,8 @@
         <div><h2 class="text-lg font-semibold text-secondary-900 dark:text-white">{t('dashboard.top_pages')}</h2><p class="text-sm text-secondary-500 dark:text-secondary-400">{t('dashboard.most_visited_pages')}</p></div>
         <button type="button" class="text-sm text-theme-primary font-medium hover:underline flex items-center gap-1">{t('dashboard.view_full_report')} <Icon icon={Icons.externalLink} width={14} height={14} /></button>
       </div>
-      <div class="overflow-x-auto">
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <div class="overflow-x-auto" tabindex="0" role="region" aria-label={t('dashboard.top_pages')}>
         <table class="w-full">
           <thead class="bg-surface-50 dark:bg-surface-800/50">
             <tr>
