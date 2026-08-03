@@ -50,9 +50,6 @@
     isShareOpen = false
   }
 </script>
-
-<svelte:head><title>{post ? post.title : 'Blog post'} · Adminex</title></svelte:head>
-
 <div class="space-y-6 animate-fade-in">
   {#if !post}
     <div class="card rounded-xl py-16 text-center">

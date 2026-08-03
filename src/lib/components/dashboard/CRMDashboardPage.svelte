@@ -24,9 +24,6 @@
         : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
   }
 </script>
-
-<svelte:head><title>CRM Pipeline - Adminex</title></svelte:head>
-
 <div class="animate-fade-in space-y-6">
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <div><h1 class="heading-2 text-secondary-900 dark:text-white">{t('dashboard.crm_pipeline')}</h1><p class="text-body-sm text-secondary-500 dark:text-secondary-400 mt-1">{t('dashboard.manage_deals')}</p></div>

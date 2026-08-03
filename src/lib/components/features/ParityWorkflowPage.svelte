@@ -30,9 +30,6 @@
     showTemplates = false
   }
 </script>
-
-<svelte:head><title>Workflow Builder - Adminex</title></svelte:head>
-
 <div class="space-y-6 animate-fade-in">
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"><div><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center"><Icon icon="solar:code-scan-bold" className="w-5 h-5 text-purple-600 dark:text-purple-400" /></div><div><h1 class="text-2xl font-bold text-gray-900 dark:text-white">Workflow Builder</h1><p class="text-sm text-gray-500 dark:text-gray-400">Visual workflow automation with drag-and-drop</p></div></div></div></div>
   <div class="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-purple-200 dark:border-purple-800"><h3 class="text-sm font-semibold text-purple-900 dark:text-purple-100 mb-1">Advanced Complex Logic</h3><p class="text-sm text-purple-700 dark:text-purple-300 mb-4">Build complex automation workflows with a visual node-based editor. Connect triggers, conditions, and actions to create powerful automated processes.</p><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="flex items-center gap-2 text-sm text-purple-800 dark:text-purple-200"><Icon icon="solar:box-bold" className="w-4 h-4" />Drag &amp; Drop Nodes</div><div class="flex items-center gap-2 text-sm text-purple-800 dark:text-purple-200"><Icon icon="solar:link-bold" className="w-4 h-4" />Visual Connections</div><div class="flex items-center gap-2 text-sm text-purple-800 dark:text-purple-200"><Icon icon="solar:play-bold" className="w-4 h-4" />Workflow Execution</div><div class="flex items-center gap-2 text-sm text-purple-800 dark:text-purple-200"><Icon icon="solar:check-circle-bold" className="w-4 h-4" />Real-time Validation</div></div></div>

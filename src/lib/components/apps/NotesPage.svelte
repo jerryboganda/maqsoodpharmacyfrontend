@@ -111,12 +111,9 @@
     noteToDelete = null
   }
 </script>
-
-<svelte:head><title>{t('notes.title')} · Adminex</title></svelte:head>
-
 <div>
   <div class="flex items-center justify-between mb-6">
-    <div><h1 class="heading-2 text-secondary-900 dark:text-white">{t('notes.title')}</h1><p class="text-body-sm text-secondary-500 dark:text-secondary-400 mt-1">{t('notes.count').replace('{count}', String(sortedNotes.length))}</p></div>
+    <div><h1 class="heading-2 text-secondary-900 dark:text-white">{t('notes.title')}</h1><p class="text-body-sm text-secondary-500 dark:text-secondary-400 mt-1">{t('notes.count', { count: sortedNotes.length })}</p></div>
     <button type="button" on:click={handleAddNew} class="flex items-center gap-2 px-4 py-2.5 bg-theme-primary text-white rounded-xl hover:bg-theme-primary-dark transition-colors font-medium"><Icon icon={Icons.plus} width={18} height={18} />{t('notes.new_note')}</button>
   </div>
 
@@ -174,4 +171,3 @@
     <div class="fixed inset-0 z-[1050] flex items-center justify-center p-4"><button type="button" class="absolute inset-0 bg-black/50 backdrop-blur-sm" aria-label="Close delete dialog" on:click={() => (isDeleteDialogOpen = false)}></button><div class="relative w-full max-w-md bg-white dark:bg-surface-900 rounded-2xl shadow-2xl animate-fade-in p-6"><div class="w-14 h-14 mx-auto mb-4 rounded-full bg-danger-100 dark:bg-danger-900/30 flex items-center justify-center"><Icon icon={Icons.alertTriangle} width={28} height={28} className="text-danger-600 dark:text-danger-400" /></div><h3 class="text-lg font-bold text-secondary-900 dark:text-white text-center mb-2">{t('notes.delete_note')}</h3><p class="text-sm text-secondary-500 dark:text-secondary-400 text-center mb-6">{t('notes.delete_confirm_message').replace('{title}', noteToDelete.title)}</p><div class="flex gap-3"><button type="button" on:click={() => (isDeleteDialogOpen = false)} class="flex-1 px-4 py-2.5 bg-surface-100 dark:bg-surface-800 text-secondary-700 dark:text-secondary-300 rounded-xl text-sm font-medium hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors">{t('common.cancel')}</button><button type="button" on:click={handleConfirmDelete} class="flex-1 px-4 py-2.5 bg-danger-600 text-white rounded-xl text-sm font-medium hover:bg-danger-700 transition-colors">{t('notes.delete_note')}</button></div></div></div>
   {/if}
 </div>
-

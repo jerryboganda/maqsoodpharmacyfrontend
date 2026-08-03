@@ -29,9 +29,6 @@
     { name: 'iPad Air', type: 'Tablet', location: 'Los Angeles, USA', lastActive: '2 days ago', current: false },
   ]
 </script>
-
-<svelte:head><title>{t('account.title')} · Adminex</title></svelte:head>
-
 <div class="space-y-6" data-locale={currentLocale}>
   <div>
     <h1 class="heading-2 text-secondary-900 dark:text-white">{t('account.title')}</h1>

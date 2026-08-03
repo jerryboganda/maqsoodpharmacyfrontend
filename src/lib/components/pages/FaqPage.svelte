@@ -66,9 +66,6 @@
     return faqs.slice(0, categoryIndex).reduce((sum, category) => sum + category.questions.length, 0) + questionIndex
   }
 </script>
-
-<svelte:head><title>{t('faq.title')} · Adminex</title></svelte:head>
-
 <div class="space-y-6 max-w-4xl mx-auto" data-locale={currentLocale}>
   <div class="text-center">
     <h1 class="heading-2 text-secondary-900 dark:text-white">{t('faq.title')}</h1>
@@ -78,8 +75,7 @@
   <div class="card rounded-xl p-4">
     <div class="relative">
       <Icon icon={Icons.search} width={20} height={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary-400" />
-      <label class="sr-only" for="faq-search">Search for questions</label>
-      <input id="faq-search" type="text" bind:value={searchQuery} placeholder={t('faq.search_placeholder')} class="w-full pl-12 pr-4 py-3 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-secondary-900 dark:text-white placeholder-secondary-400 focus:outline-none focus:ring-2 focus:ring-theme-primary/20 focus:border-theme-primary transition-all" />
+      <input id="faq-search" type="text" aria-label="Search for questions" bind:value={searchQuery} placeholder={t('faq.search_placeholder')} class="w-full pl-12 pr-4 py-3 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-secondary-900 dark:text-white placeholder-secondary-400 focus:outline-none focus:ring-2 focus:ring-theme-primary/20 focus:border-theme-primary transition-all" />
     </div>
   </div>
 
@@ -120,4 +116,3 @@
     <button type="button" class="px-6 py-3 bg-theme-primary hover:bg-theme-primary-dark text-white rounded-xl text-base font-semibold transition-colors">{t('faq.contact_support')}</button>
   </div>
 </div>
-

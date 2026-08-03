@@ -113,6 +113,7 @@
       editorProps: {
         attributes: {
           class: 'min-h-[260px] px-4 py-3 rounded-xl bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 text-secondary-900 dark:text-white focus:outline-none',
+          'aria-label': t('nav.editor'),
         },
       },
       onUpdate: ({ editor: currentEditor }) => {
@@ -122,9 +123,6 @@
     return () => editor?.destroy()
   })
 </script>
-
-<svelte:head><title>{pageTitle} &middot; Adminex</title></svelte:head>
-
 {#if path === '/forms/editor'}
   <div class="space-y-6">
     <div>

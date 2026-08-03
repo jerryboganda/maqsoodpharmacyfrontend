@@ -129,9 +129,6 @@
             ? { title: t('charts.radar.title'), subtitle: t('charts.radar.subtitle') }
             : { title: t('charts.candlestick_chart'), subtitle: t('charts.candlestick.subtitle') }
 </script>
-
-<svelte:head><title>{header.title} &middot; Adminex</title></svelte:head>
-
 <div class="space-y-6">
   <div>
     <h1 class="heading-2 text-secondary-900 dark:text-white">{header.title}</h1>

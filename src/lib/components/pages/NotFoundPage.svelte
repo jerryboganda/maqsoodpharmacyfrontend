@@ -5,11 +5,6 @@
 
   const t = translate
 </script>
-
-<svelte:head>
-  <title>404 - Adminex</title>
-</svelte:head>
-
 <div class="min-h-screen bg-surface-50 dark:bg-surface-950 flex items-center justify-center p-4 overflow-hidden relative">
   <div class="absolute top-1/4 left-1/4 w-64 h-64 bg-accent-500/10 rounded-full blur-3xl animate-pulse"></div>
   <div class="absolute bottom-1/4 right-1/4 w-64 h-64 bg-accent-500/10 rounded-full blur-3xl animate-pulse delay-700"></div>

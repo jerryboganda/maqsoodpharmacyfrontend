@@ -93,9 +93,6 @@
     }
   }
 </script>
-
-<svelte:head><title>{t('apps.chat.chats')} Ã‚Â· Adminex</title></svelte:head>
-
 <div class="h-[calc(100vh-7rem)] flex animate-fade-in card rounded-xl overflow-hidden">
   <div class={'w-full md:w-80 lg:w-96 flex-shrink-0 bg-white dark:bg-surface-900 border-e border-surface-200 dark:border-surface-700 flex flex-col ' + (showMobileChat ? 'hidden md:flex' : 'flex')}>
     <div class="p-4 border-b border-surface-200 dark:border-surface-700">
@@ -139,7 +136,7 @@
               <span class="text-ui-sm text-secondary-500 dark:text-secondary-400 flex-shrink-0">{formatTime(conversation.lastMessage?.timestamp ?? '')}</span>
             </div>
             <div class="flex items-center justify-between">
-              <p class="text-sm text-secondary-500 dark:text-secondary-400 truncate">{#if isOwnMessage}<span class="text-secondary-400">{t('apps.chat.you')}: </span>{/if}{conversation.lastMessage?.content}</p>
+              <p class="text-sm text-secondary-500 dark:text-secondary-400 truncate">{#if isOwnMessage}<span class="text-secondary-400">{t('apps.chat.you')}:</span>{' '}{/if}{conversation.lastMessage?.content}</p>
               {#if conversation.unreadCount > 0}<span class="w-5 h-5 flex items-center justify-center bg-theme-primary text-white text-xs font-medium rounded-full flex-shrink-0">{conversation.unreadCount}</span>{/if}
             </div>
           </div>
@@ -182,7 +179,8 @@
         </div>
       </div>
 
-      <div bind:this={messagesElement} class="flex-1 overflow-y-auto p-4 space-y-4">
+      <div bind:this={messagesElement} role="region" aria-label="Conversation messages" class="relative flex-1 overflow-y-auto p-4 space-y-4">
+        <button type="button" class="sr-only focus:not-sr-only focus:absolute focus:z-10 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:text-theme-primary" on:click={() => { if (messagesElement) messagesElement.scrollTop = messagesElement.scrollHeight }}>Jump to latest message</button>
         {#each selectedMessages as message, index}
           {@const isOwn = message.senderId === currentUser.id}
           {@const sender = getSender(message.senderId)}
@@ -247,8 +245,5 @@
     </div>
   {/if}
 </div>
-
-
-
 
 

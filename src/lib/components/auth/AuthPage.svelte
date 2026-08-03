@@ -24,9 +24,6 @@
     else goto('/dashboard')
   }
 </script>
-
-<svelte:head><title>{t(heading)} &middot; Adminex</title></svelte:head>
-
 {#if card}
   <div class="min-h-screen flex items-center justify-center p-4 bg-surface-100 dark:bg-surface-950 relative overflow-hidden">
     <div class="absolute inset-0 overflow-hidden pointer-events-none">

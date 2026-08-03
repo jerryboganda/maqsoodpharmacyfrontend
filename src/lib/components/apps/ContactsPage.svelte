@@ -1,8 +1,10 @@
 <script lang="ts">
   import Icon from '../common/Icon.svelte'
   import { Icons } from '../../icons'
+  import { translate } from '../../stores/locale'
   import { contactsData, departments, statuses, roles, type Contact } from '../../../data'
 
+  const t = translate
   type ContactForm = Omit<Contact, 'id' | 'joinedDate' | 'lastActive'>
   const emptyForm: ContactForm = { name: '', email: '', phone: '', role: '', department: '', location: '', status: 'active', bio: '', avatar: '' }
   let contacts: Contact[] = contactsData.map((contact) => ({ ...contact }))
@@ -68,11 +70,8 @@
   }
   function clearFilters(): void { filterDepartment = 'All'; filterStatus = 'All' }
 </script>
-
-<svelte:head><title>Contacts · Adminex</title></svelte:head>
-
 <div class="space-y-6 animate-fade-in">
-  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"><div><h1 class="heading-2 text-secondary-900 dark:text-white">Contacts</h1><p class="text-body-sm text-secondary-500 dark:text-secondary-400 mt-1">Manage your contacts and connections</p></div><div class="flex items-center gap-3"><span class="text-sm text-secondary-500">{filteredContacts.length} contacts</span><button type="button" class="flex items-center gap-2 px-4 py-2.5 bg-theme-primary text-white rounded-xl text-sm font-medium" on:click={openAdd}><Icon icon={Icons.plus} width={16} height={16} />Add contact</button></div></div>
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"><div><h1 class="heading-2 text-secondary-900 dark:text-white">{t('contacts.title')}</h1><p class="text-body-sm text-secondary-500 dark:text-secondary-400 mt-1">{t('contacts.description')}</p></div><div class="flex items-center gap-3"><span class="text-sm text-secondary-500">{t('contacts.count', { count: filteredContacts.length })}</span><button type="button" class="flex items-center gap-2 px-4 py-2.5 bg-theme-primary text-white rounded-xl text-sm font-medium" on:click={openAdd}><Icon icon={Icons.plus} width={16} height={16} />{t('contacts.add_contact')}</button></div></div>
 
   <div class="card rounded-xl p-4"><div class="flex flex-col sm:flex-row gap-4"><div class="flex-1 relative"><Icon icon={Icons.search} width={20} height={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" /><input bind:value={searchQuery} type="search" placeholder="Search contacts" aria-label="Search contacts" class="w-full pl-10 pr-4 py-2.5 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-lg text-sm text-secondary-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-theme-primary/20" /></div><div class="relative"><button type="button" class={`flex items-center justify-center gap-2 px-4 py-2.5 border rounded-lg text-sm font-medium ${activeFilterCount ? 'bg-theme-primary-light border-theme-primary/30 text-theme-primary' : 'bg-surface-50 dark:bg-surface-800 border-surface-200 dark:border-surface-700 text-secondary-700 dark:text-secondary-300'}`} on:click={() => (filterOpen = !filterOpen)}><Icon icon={Icons.filter} width={16} height={16} />Filter{#if activeFilterCount}<span class="w-5 h-5 flex items-center justify-center bg-theme-primary text-white text-xs rounded-full">{activeFilterCount}</span>{/if}<Icon icon={Icons.chevronDown} width={16} height={16} className={filterOpen ? 'rotate-180' : ''} /></button>{#if filterOpen}<div class="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-surface-900 rounded-xl shadow-xl border border-surface-200 dark:border-surface-700 z-20 p-4 space-y-4"><div class="flex items-center justify-between"><h2 class="text-sm font-semibold text-secondary-900 dark:text-white">Filters</h2>{#if activeFilterCount}<button type="button" class="text-xs text-theme-primary" on:click={clearFilters}>Clear all</button>{/if}</div><label class="block text-xs font-medium text-secondary-700 dark:text-secondary-300">Department<select bind:value={filterDepartment} class="input-theme mt-2"><option value="All">All</option>{#each departments.filter((department) => department !== 'All') as department}<option value={department}>{department}</option>{/each}</select></label><label class="block text-xs font-medium text-secondary-700 dark:text-secondary-300">Status<select bind:value={filterStatus} class="input-theme mt-2"><option value="All">All</option>{#each statuses.filter((status) => status !== 'All') as status}<option value={status}>{status}</option>{/each}</select></label><button type="button" class="w-full px-4 py-2 bg-theme-primary text-white rounded-lg text-sm font-medium" on:click={() => (filterOpen = false)}>Apply</button></div>{/if}</div></div></div>
 

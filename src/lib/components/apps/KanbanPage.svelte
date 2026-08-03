@@ -104,9 +104,6 @@
     isDetailModalOpen = true
   }
 </script>
-
-<svelte:head><title>{t('kanban.title')} Ã‚Â· Adminex</title></svelte:head>
-
 <div class="space-y-6" data-locale={currentLocale}>
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <div>
@@ -117,7 +114,7 @@
 
   <div class="flex gap-4 overflow-x-auto pb-4 mb-6">
     {#each columns as column}
-      <div role="list" class="flex flex-col w-80 flex-shrink-0 bg-surface-100 dark:bg-surface-800 rounded-xl p-3" on:dragover|preventDefault on:drop={() => handleDragEnd(column.id)}>
+      <div class="flex flex-col w-80 flex-shrink-0 bg-surface-100 dark:bg-surface-800 rounded-xl p-3">
         <div class="mb-2 flex items-center justify-between px-1">
           <div class="flex items-center gap-2">
             <h2 class="text-lg font-semibold text-secondary-900 dark:text-white">{column.title}</h2>
@@ -126,7 +123,7 @@
           <button type="button" aria-label={t('kanban.add_task')} title={t('kanban.add_task')} on:click={() => openTask(column.id)} class="p-1 hover:bg-surface-200 dark:hover:bg-surface-700 rounded text-secondary-500 hover:text-secondary-900 dark:hover:text-white transition-colors"><Icon icon={Icons.plus} width="16px" /></button>
         </div>
 
-        <div class="flex-1 rounded-lg p-1 min-h-[200px] space-y-2 overflow-y-auto max-h-[calc(100vh-250px)] transition-colors">
+        <div role="list" aria-label={`${column.title} tasks`} class="flex-1 rounded-lg p-1 min-h-[200px] space-y-2 overflow-y-auto max-h-[calc(100vh-250px)] transition-colors" on:dragover|preventDefault on:drop={() => handleDragEnd(column.id)}>
           {#each column.tasks as task}
             {@const priorityColor = priorityColors[task.priority]}
             {@const dueDate = dueDateLabel(task.dueDate)}
@@ -232,8 +229,6 @@
     </div>
   </div>
 {/if}
-
-
 
 
 

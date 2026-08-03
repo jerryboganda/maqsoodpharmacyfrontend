@@ -52,9 +52,6 @@
         : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
   }
 </script>
-
-<svelte:head><title>Analytics Overview - Adminex</title></svelte:head>
-
 <div class="space-y-6 animate-fade-in">
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div>

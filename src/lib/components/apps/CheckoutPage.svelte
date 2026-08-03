@@ -53,9 +53,6 @@
     window.setTimeout(() => void goto('/app/ecommerce/products'), 3000)
   }
 </script>
-
-<svelte:head><title>{t('ecommerce.checkout')} · Adminex</title></svelte:head>
-
 {#if step === 'success'}
   <div data-locale={currentLocale}>
     <div class="max-w-2xl mx-auto">

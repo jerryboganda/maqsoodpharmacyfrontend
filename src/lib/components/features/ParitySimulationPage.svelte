@@ -13,9 +13,6 @@
   function stop(): void { isRunning = false }
   function reset(): void { isRunning = false; tickCount = 0 }
 </script>
-
-<svelte:head><title>Real-Time Simulation - Adminex</title></svelte:head>
-
 <div class="space-y-6 animate-fade-in">
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-success-100 dark:bg-success-900/40 flex items-center justify-center"><Icon icon={Icons.simulation} className="w-5 h-5 text-success-600 dark:text-success-400" /></div><div><div class="flex items-center gap-2"><h1 class="heading-2 text-secondary-900 dark:text-white">Real-Time Simulation</h1><span class="flex items-center gap-1 text-xs font-medium text-success-600 bg-success-100 dark:bg-success-900/30 px-2 py-0.5 rounded-full"><Icon icon={Icons.circleFilled} className="w-1.5 h-1.5 animate-pulse" />Live</span></div><p class="text-body-sm text-secondary-500 dark:text-secondary-400 mt-0.5">Live data streaming with anomaly detection and statistical analysis</p></div></div></div>

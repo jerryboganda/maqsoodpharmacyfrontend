@@ -46,7 +46,7 @@ export const navGroups: NavGroup[] = [
     { path: '/forms/validation', label: 'Form Validation', icon: Icons.checklist },
     { path: '/forms/editor', label: 'Editor', icon: Icons.edit },
   ] },
-  { title: 'Tables', items: [
+  { title: 'Table', items: [
     { path: '/tables/simple', label: 'Simple Table', icon: Icons.table },
     { path: '/tables/data', label: 'Data Table', icon: Icons.database },
     { path: '/tables/crud', label: 'CRUD Table', icon: Icons.edit },

@@ -21,9 +21,6 @@
     return status === 'delivered' ? Icons.check : status === 'shipped' ? Icons.truck : Icons.clock
   }
 </script>
-
-<svelte:head><title>eCommerce Overview - Adminex</title></svelte:head>
-
 <div class="animate-fade-in space-y-6">
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <div><h1 class="heading-2 text-secondary-900 dark:text-white">{t('dashboard.ecommerce_overview')}</h1><p class="text-body-sm text-secondary-500 dark:text-secondary-400 mt-1">{t('dashboard.manage_store')}</p></div>

@@ -38,9 +38,6 @@
     bookmarks = next
   }
 </script>
-
-<svelte:head><title>Blog - Adminex</title></svelte:head>
-
 <div class="space-y-6 animate-fade-in">
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <div>

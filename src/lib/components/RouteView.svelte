@@ -1,13 +1,13 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
   import { onMount } from 'svelte'
+  import { locale } from '../stores/locale'
   import AdminShell from './layout/AdminShell.svelte'
   import DashboardPage from './dashboard/DashboardPage.svelte'
   import AnalyticsDashboardPage from './dashboard/AnalyticsDashboardPage.svelte'
   import EcommerceDashboardPage from './dashboard/EcommerceDashboardPage.svelte'
   import CRMDashboardPage from './dashboard/CRMDashboardPage.svelte'
   import AuthPage from './auth/AuthPage.svelte'
-  import ModulePage from './pages/ModulePage.svelte'
   import CallPage from './apps/CallPage.svelte'
   import BlogEditorPage from './apps/BlogEditorPage.svelte'
   import BlogDetailPage from './apps/BlogDetailPage.svelte'
@@ -21,7 +21,6 @@
   import KanbanPage from './apps/KanbanPage.svelte'
   import BlogListPage from './apps/BlogListPage.svelte'
   import ProductsPage from './apps/ProductsPage.svelte'
-  import FeaturePage from './features/FeaturePage.svelte'
   import RuleEnginePage from './features/RuleEnginePage.svelte'
   import ParityQueryPage from './features/ParityQueryPage.svelte'
   import ParitySimulationPage from './features/ParitySimulationPage.svelte'
@@ -46,7 +45,6 @@
   const exactRoutes = new Set([
     '/dashboard', '/dashboard/analytics', '/dashboard/ecommerce', '/dashboard/crm', '/app/email', '/app/calendar', '/app/blog', '/app/blog/create', '/app/contacts', '/app/chat', '/app/chat/voice-call', '/app/chat/video-call', '/app/ecommerce/products', '/app/ecommerce/products/create', '/app/ecommerce/checkout', '/app/notes', '/app/kanban', '/forms/layout', '/forms/validation', '/forms/editor', '/tables/simple', '/tables/data', '/tables/crud', '/charts/line', '/charts/area', '/charts/columns', '/charts/pie', '/charts/radar', '/charts/candlestick', '/pages/pricing', '/pages/account-settings', '/pages/gallery', '/pages/faq', '/pages/typography', '/features/rule-engine', '/features/query-builder', '/features/simulation', '/features/insights', '/features/workflow-builder', '/features/approval-engine', '/features/task-scheduler', '/features/notification-pipeline', '/auth/login', '/auth/register', '/auth/forgot-password', '/auth-card/login', '/auth-card/register', '/auth-card/forgot-password',
   ])
-  function isKnown(value: string): boolean { return exactRoutes.has(value) || value.startsWith('/app/blog/') || /^\/app\/ecommerce\/products\/[^/]+(\/edit)?$/.test(value) }
   $: dashboardVariant = path === '/dashboard/analytics' ? 'analytics' : path === '/dashboard/ecommerce' ? 'ecommerce' : path === '/dashboard/crm' ? 'crm' : 'overview'
   $: authKind = path.endsWith('register') ? 'register' : path.endsWith('forgot-password') ? 'forgot' : 'login'
   $: authCard = path.startsWith('/auth-card/')
@@ -59,9 +57,10 @@
   })
 </script>
 
+{#key $locale}
 {#if path === '/charts'}
   <div class="min-h-[50vh] flex items-center justify-center text-secondary-500">Redirecting to line charts...</div>
-{:else if path.startsWith('/auth/') || path.startsWith('/auth-card/')}
+{:else if exactRoutes.has(path) && (path.startsWith('/auth/') || path.startsWith('/auth-card/'))}
   <AuthPage kind={authKind} card={authCard} />
 {:else if path === '/app/chat/voice-call' || path === '/app/chat/video-call'}
   <AdminShell showCustomizer={false}><CallPage mode={path.endsWith('video-call') ? 'video' : 'voice'} /></AdminShell>
@@ -69,7 +68,7 @@
   <AdminShell showCustomizer={false}><BlogEditorPage /></AdminShell>
 {:else if path === '/app/blog'}
   <AdminShell showCustomizer={false}><BlogListPage /></AdminShell>
-{:else if path.startsWith('/app/blog/')}
+{:else if /^\/app\/blog\/[^/]+$/.test(path)}
   <AdminShell showCustomizer={false}><BlogDetailPage slug={path.split('/').pop() ?? 'post-1'} /></AdminShell>
 {:else if path === '/app/ecommerce/products/create'}
   <AdminShell showCustomizer={false}><ProductPage mode="create" /></AdminShell>
@@ -105,30 +104,27 @@
   <AdminShell showCustomizer={false}><ParityTaskPage /></AdminShell>
 {:else if path === '/features/notification-pipeline'}
   <AdminShell showCustomizer={false}><ParityNotificationPage /></AdminShell>
-{:else if path.startsWith('/features/')}
-  <AdminShell showCustomizer={false}><FeaturePage {path} /></AdminShell>
-{:else if path.startsWith('/forms/')}
+{:else if exactRoutes.has(path) && path.startsWith('/forms/')}
   <AdminShell showCustomizer={false}><FormsPage {path} /></AdminShell>
-{:else if path.startsWith('/tables/')}
+{:else if exactRoutes.has(path) && path.startsWith('/tables/')}
   <AdminShell showCustomizer={false}><TablesPage {path} /></AdminShell>
-{:else if path.startsWith('/charts/')}
+{:else if exactRoutes.has(path) && path.startsWith('/charts/')}
   <AdminShell showCustomizer={false}><ChartsPage {path} /></AdminShell>
 {:else if path === '/pages/account-settings'}
   <AdminShell showCustomizer={false}><AccountSettingsPage /></AdminShell>
 {:else if path === '/pages/faq'}
   <AdminShell showCustomizer={false}><FaqPage /></AdminShell>
-{:else if path.startsWith('/pages/')}
+{:else if path === '/pages/pricing' || path === '/pages/gallery' || path === '/pages/typography'}
   <AdminShell showCustomizer={false}><InfoPage {path} /></AdminShell>
-{:else if path.startsWith('/app/ecommerce/products/')}
+{:else if /^\/app\/ecommerce\/products\/[^/]+(\/edit)?$/.test(path)}
   <AdminShell showCustomizer={false}><ProductPage mode={path.endsWith('/edit') ? 'edit' : 'detail'} productId={path.split('/')[4] ?? '1'} /></AdminShell>
-{:else if isKnown(path)}
+{:else if path === '/dashboard' || path === '/dashboard/analytics' || path === '/dashboard/ecommerce' || path === '/dashboard/crm'}
   <AdminShell showCustomizer={false}>
-    {#if path === '/dashboard/analytics'}<AnalyticsDashboardPage />{:else if path === '/dashboard/ecommerce'}<EcommerceDashboardPage />{:else if path === '/dashboard/crm'}<CRMDashboardPage />{:else if path === '/dashboard'}<DashboardPage variant="overview" />{:else}<ModulePage {path} />{/if}
+    {#if path === '/dashboard/analytics'}<AnalyticsDashboardPage />{:else if path === '/dashboard/ecommerce'}<EcommerceDashboardPage />{:else if path === '/dashboard/crm'}<CRMDashboardPage />{:else}<DashboardPage variant="overview" />{/if}
   </AdminShell>
 {:else}
   <NotFoundPage />
 {/if}
-
-
+{/key}
 
 

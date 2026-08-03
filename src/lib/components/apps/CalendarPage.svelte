@@ -162,9 +162,6 @@
     return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
   }
 </script>
-
-<svelte:head><title>Calendar - Adminex</title></svelte:head>
-
 <div class="space-y-6 animate-fade-in">
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <div>
@@ -194,11 +191,12 @@
         <div class="grid grid-cols-7 mb-2">{#each weekDayNames as name}<div class="text-center text-sm font-semibold text-secondary-500 dark:text-secondary-400 py-3">{name}</div>{/each}</div>
         <div class="grid grid-cols-7 gap-px bg-surface-200 dark:bg-surface-700 rounded-xl overflow-hidden">
           {#each days as day}
-            <div role="button" tabindex="0" aria-label={`Add event on ${day.date.toLocaleDateString()}`} class={`min-h-28 p-2 bg-white dark:bg-surface-900 cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800 ${day.current ? '' : 'bg-surface-50 dark:bg-surface-800/50'}`} on:click={() => openNew(day.date)} on:keydown={(event) => (event.key === 'Enter' || event.key === ' ') && (event.preventDefault(), openNew(day.date))}>
-              <div class={`text-sm font-medium mb-1.5 w-7 h-7 flex items-center justify-center rounded-full ${isToday(day.date) ? 'bg-theme-primary text-white' : day.current ? 'text-secondary-900 dark:text-white' : 'text-secondary-400'}`}>{day.date.getDate()}</div>
-              <div class="space-y-1">
+            <div class={`relative min-h-28 p-2 bg-white dark:bg-surface-900 cursor-pointer hover:bg-surface-50 dark:hover:bg-surface-800 ${day.current ? '' : 'bg-surface-50 dark:bg-surface-800/50'}`}>
+              <button type="button" aria-label={`Add event on ${day.date.toLocaleDateString()}`} class="absolute inset-0 z-[1] cursor-pointer border-0 bg-transparent p-0" on:click={() => openNew(day.date)}></button>
+              <div class={`relative z-[2] pointer-events-none text-sm font-medium mb-1.5 w-7 h-7 flex items-center justify-center rounded-full ${isToday(day.date) ? 'bg-theme-primary text-white' : day.current ? 'text-secondary-900 dark:text-white' : 'text-secondary-400'}`}>{day.date.getDate()}</div>
+              <div class="relative z-[2] pointer-events-none space-y-1">
                 {#each eventsFor(day.date).slice(0, 3) as event}
-                  <button type="button" class={`block w-full text-left text-xs px-2 py-1 rounded-md truncate cursor-pointer font-medium ${eventColors[event.color].bg} ${eventColors[event.color].text} border-s-2 ${eventColors[event.color].border}`} on:click|stopPropagation={() => (selectedEvent = event)}>{event.title}</button>
+                  <button type="button" class={`relative z-10 pointer-events-auto block w-full text-left text-xs px-2 py-1 rounded-md truncate cursor-pointer font-medium ${eventColors[event.color].bg} ${eventColors[event.color].text} border-s-2 ${eventColors[event.color].border}`} on:click|stopPropagation={() => (selectedEvent = event)}>{event.title}</button>
                 {/each}
                 {#if eventsFor(day.date).length > 3}<p class="text-xs text-secondary-400">+{eventsFor(day.date).length - 3} more</p>{/if}
               </div>
@@ -266,4 +264,3 @@
 {#if deleteOpen && toDelete}
   <div class="fixed inset-0 z-[1060] flex items-center justify-center p-4"><button type="button" class="absolute inset-0 bg-black/50" aria-label="Close delete dialog" on:click={() => (deleteOpen = false)}></button><div class="relative w-full max-w-md bg-white dark:bg-surface-900 rounded-2xl p-6 text-center"><h2 class="heading-5 text-secondary-900 dark:text-white">Delete event?</h2><p class="text-sm text-secondary-500 mt-2">{toDelete.title} will be removed.</p><div class="flex gap-3 mt-6"><button type="button" class="flex-1 px-4 py-2.5 bg-surface-100 rounded-xl" on:click={() => (deleteOpen = false)}>Cancel</button><button type="button" class="flex-1 px-4 py-2.5 bg-danger-600 text-white rounded-xl" on:click={() => { events = events.filter((event) => event.id !== toDelete?.id); deleteOpen = false; toDelete = null }}>Delete</button></div></div></div>
 {/if}
-

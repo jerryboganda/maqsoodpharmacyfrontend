@@ -75,9 +75,6 @@
     void goto('/app/blog')
   }
 </script>
-
-<svelte:head><title>{t('blog.create_title')} - Adminex</title></svelte:head>
-
 <div class="space-y-6 animate-fade-in">
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div class="flex items-center gap-4">
@@ -167,8 +164,8 @@
       </div>
 
       <div class="card rounded-xl p-6">
-        <label class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-3"><Icon icon={Icons.category} className="w-4 h-4 inline-block me-2" width={16} height={16} />{t('blog.category')} *</label>
-        <select bind:value={category} class="w-full px-4 py-2.5 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-secondary-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-theme-primary/20 focus:border-theme-primary transition-all">
+        <label for="blog-category" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-3"><Icon icon={Icons.category} className="w-4 h-4 inline-block me-2" width={16} height={16} />{t('blog.category')} *</label>
+        <select id="blog-category" bind:value={category} class="w-full px-4 py-2.5 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-secondary-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-theme-primary/20 focus:border-theme-primary transition-all">
           <option value="">{t('blog.select_category')}</option>
           {#each selectableCategories as item}<option value={item}>{item}</option>{/each}
         </select>
@@ -204,6 +201,5 @@
     </div>
   </div>
 </div>
-
 
 
