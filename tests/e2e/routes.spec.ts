@@ -52,7 +52,7 @@ test('every migrated route has no serious or critical non-contrast axe violation
     const results = await new AxeBuilder({ page }).analyze()
     serious.push(...results.violations
       // Adminex's source palette has known WCAG contrast findings. Those are
-      // audited separately against React so this migration gate can detect
+      // audited separately against the canonical reference so this migration gate can detect
       // structural accessibility regressions without changing source colors.
       .filter((violation) => violation.id !== 'color-contrast' && (violation.impact === 'serious' || violation.impact === 'critical'))
       .map((violation) => ({ route, id: violation.id, impact: violation.impact ?? null, nodes: violation.nodes.length })))

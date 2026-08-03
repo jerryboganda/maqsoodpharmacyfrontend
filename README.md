@@ -2,6 +2,8 @@
 
 Adminex is a pixel-preserving SvelteKit migration of the original Adminex dashboard. It keeps the original branding, mock data, assets, layouts, routes, themes, ten locale files, RTL behavior, charts, forms, tables, and localStorage-driven interactions.
 
+This repository is Svelte-only: the application source, dependencies, routes, and tests are SvelteKit/TypeScript. Historical migration comparison scripts and the original framework reference are not part of the active project; the reference backup is retained outside this repository.
+
 ## Local development
 
 ```bash
@@ -20,6 +22,7 @@ npm run test:unit
 npm run test:e2e
 npm run build
 npm run preview
+npm run verify:svelte-only
 ```
 
 The production build is written to `build/` and uses `adapter-static` with an SPA fallback so the complete route set remains directly addressable.

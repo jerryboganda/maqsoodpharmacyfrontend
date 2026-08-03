@@ -9,7 +9,7 @@ import { createEmptyStateMachine, validateStateMachine } from '../features/appro
 import { createDependency, createTask, topologicalSort, validateSchedule } from '../features/task-scheduler/engine'
 
 describe('preserved Adminex feature engines', () => {
-  it('creates and validates a rule without React', () => {
+  it('creates and validates a rule in the Svelte app', () => {
     const rule = { ...createEmptyRule(), name: 'Active customer' }
     expect(rule.id).toBeTruthy()
     expect(validateRule(rule).valid).toBe(true)

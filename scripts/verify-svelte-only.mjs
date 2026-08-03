@@ -36,7 +36,7 @@ async function walk(directory) {
     if (legacyExtensions.has(extension)) findings.push(`${relative}: legacy ${extension} source file`)
     if (!sourceExtensions.has(extension)) continue
     const content = await readFile(absolute, 'utf8')
-    if (forbiddenImports.some((pattern) => pattern.test(content))) findings.push(`${relative}: React import or require`)
+    if (forbiddenImports.some((pattern) => pattern.test(content))) findings.push(`${relative}: forbidden framework import or require`)
   }
 }
 
@@ -50,9 +50,9 @@ for (const section of ['dependencies', 'devDependencies', 'peerDependencies', 'o
 }
 
 if (findings.length) {
-  console.error(`React-removal gate failed with ${findings.length} finding(s):`)
+  console.error(`Svelte-only gate failed with ${findings.length} finding(s):`)
   for (const finding of findings) console.error(`- ${finding}`)
   process.exitCode = 1
 } else {
-  console.log('React-removal gate passed: 0 legacy source files, imports, or package declarations.')
+  console.log('Svelte-only gate passed: 0 legacy source files, imports, or package declarations.')
 }

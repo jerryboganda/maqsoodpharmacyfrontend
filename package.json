@@ -32,7 +32,7 @@
     "build": "svelte-kit sync && vite build",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "lint": "eslint .",
-    "verify:react-free": "node scripts/verify-react-free.mjs",
+    "verify:svelte-only": "node scripts/verify-svelte-only.mjs",
     "preview": "vite preview",
     "test:unit": "vitest run",
     "test:e2e": "playwright test"
