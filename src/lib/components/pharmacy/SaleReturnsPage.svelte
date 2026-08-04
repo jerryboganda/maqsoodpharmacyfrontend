@@ -30,20 +30,30 @@
     GetSaleReturnResult,
     CustomerRow,
     SaleInvoiceRow,
-    SaleInvoiceLineRow,
     ItemSummary,
     CreateSaleReturnInput,
     SaleReturnLineInput,
   } from '../../api'
+  // Wave 7 lifecycle-action types are local to sales.ts, not re-exported through the './api'
+  // barrel (types.ts) -- same "import the module file directly" precedent PaymentMethodsPage.svelte
+  // follows for PaymentCashBankAccountRow (see payments.ts's own header comment).
+  import type {
+    CancelSaleReturnInput,
+    ReverseSaleReturnInput,
+    LookupSaleReturnInvoiceResult,
+  } from '../../api/sales'
 
-  // One row per line on the original invoice, pre-filled from it -- `include` decides whether it
-  // is actually sent as a return line. `soldQty` is display-only (what the invoice line carried);
-  // `returnQty` is the editable, pre-filled decimal string.
+  // One row per line on the original invoice, pre-filled from a real POST /sale-returns/lookup-
+  // invoice response (Wave 7) -- `include` decides whether it is actually sent as a return line.
+  // `soldQty`/`qtyAlreadyReturned`/`qtyReturnable` are display-only (what the lookup reported);
+  // `returnQty` is the editable, pre-filled-to-`qtyReturnable` decimal string.
   type ReturnLineForm = {
     saleInvoiceLineId: number
     itemId: number
     stockLotId: number
     soldQty: string
+    qtyAlreadyReturned: string
+    qtyReturnable: string
     unitSalePrice: string
     include: boolean
     returnQty: string
@@ -117,9 +127,91 @@
     detailOpen = false
     detailResult = null
     detailError = ''
+    cancelOpen = false
+    reverseOpen = false
+  }
+
+  function toastApiError(err: unknown, fallback: string): void {
+    if (err instanceof ApiError) toast.error(err.detail || err.message)
+    else if (err instanceof ApiNetworkError) toast.error(err.message)
+    else toast.error(fallback)
+  }
+
+  // ---- Cancel return (Wave 7) ---------------------------------------------------------------
+  // Only enabled when detailResult.saleReturn.status === 'posted'. The 422 this can throw --
+  // SALE_RETURN.STOCK_ALREADY_MOVED, when the lot(s) this return added to have since been touched
+  // -- carries its own actionable `detail` message ("reverse this return instead of cancelling
+  // it"); toastApiError surfaces that real message, not a generic failure.
+  let cancelOpen = false
+  let cancelReason = ''
+  let cancelSubmitting = false
+
+  function openCancel(): void {
+    cancelReason = ''
+    cancelOpen = true
+  }
+  function closeCancelModal(): void {
+    if (cancelSubmitting) return
+    cancelOpen = false
+  }
+  async function confirmCancel(): Promise<void> {
+    if (!detailResult) return
+    cancelSubmitting = true
+    try {
+      const input: CancelSaleReturnInput = {}
+      if (cancelReason.trim()) input.reason = cancelReason.trim()
+      const result = await salesApi.cancelSaleReturn(detailResult.saleReturn.saleReturnId, input, api.newIdempotencyKey())
+      toast.success(`Sale return ${result.saleReturn.docNumber} cancelled.`)
+      cancelOpen = false
+      detailResult = result
+      await loadList()
+    } catch (err) {
+      toastApiError(err, 'Could not cancel this sale return.')
+    } finally {
+      cancelSubmitting = false
+    }
+  }
+
+  // ---- Reverse return (Wave 7) --------------------------------------------------------------
+  // Same enable condition as cancel (status === 'posted'), but unconditional w.r.t. cancel's own
+  // stock-untouched guard -- can still 422 INVENTORY.INSUFFICIENT_STOCK if the returned stock has
+  // genuinely since been consumed elsewhere (sale-returns.service.ts's reverse doc comment).
+  let reverseOpen = false
+  let reverseReason = ''
+  let reverseSubmitting = false
+
+  function openReverse(): void {
+    reverseReason = ''
+    reverseOpen = true
+  }
+  function closeReverseModal(): void {
+    if (reverseSubmitting) return
+    reverseOpen = false
+  }
+  async function confirmReverse(): Promise<void> {
+    if (!detailResult) return
+    reverseSubmitting = true
+    try {
+      const input: ReverseSaleReturnInput = {}
+      if (reverseReason.trim()) input.reason = reverseReason.trim()
+      const result = await salesApi.reverseSaleReturn(detailResult.saleReturn.saleReturnId, input, api.newIdempotencyKey())
+      toast.success(`Sale return ${result.saleReturn.docNumber} reversed.`)
+      reverseOpen = false
+      detailResult = result
+      await loadList()
+    } catch (err) {
+      toastApiError(err, 'Could not reverse this sale return.')
+    } finally {
+      reverseSubmitting = false
+    }
   }
 
   // ---- create modal ------------------------------------------------------------------------
+  // Wave 7: the create form is now driven by a real lookup-invoice step FIRST (docNumber search
+  // box -> SaleReturnsService.lookupInvoice's real per-line qtyAlreadyReturned/qtyReturnable),
+  // replacing the old customer-dropdown -> invoice-dropdown -> getSaleInvoice chain, which
+  // pre-filled returnQty with the FULL sold qty and had no idea how much of a line was already
+  // returned -- relying entirely on the server's own 422 to catch an over-return after the fact.
   let createOpen = false
   let createDataLoading = false
   let createLoading = false
@@ -131,28 +223,30 @@
   $: itemMap = new Map(items.map((item) => [item.itemId, item]))
 
   let customerId: number | '' = ''
+  let saleInvoiceId: number | '' = ''
   let documentDate = todayYmd()
   let notes = ''
 
-  let customerInvoices: SaleInvoiceRow[] = []
-  let customerInvoicesLoading = false
-  let saleInvoiceId: number | '' = ''
+  let lookupDocNumber = ''
+  let lookupLoading = false
+  let lookupError = ''
+  let lookupResult: LookupSaleReturnInvoiceResult | null = null
 
   let invoiceLines: ReturnLineForm[] = []
-  let invoiceLinesLoading = false
-  let invoiceLinesError = ''
 
   async function openCreate(): Promise<void> {
     createOpen = true
     createError = ''
     formErrors = {}
     customerId = ''
+    saleInvoiceId = ''
     documentDate = todayYmd()
     notes = ''
-    customerInvoices = []
-    saleInvoiceId = ''
+    lookupDocNumber = ''
+    lookupLoading = false
+    lookupError = ''
+    lookupResult = null
     invoiceLines = []
-    invoiceLinesError = ''
     idempotencyKey = api.newIdempotencyKey()
     createDataLoading = true
     try {
@@ -169,49 +263,54 @@
     createOpen = false
   }
 
-  async function handleCustomerChange(value: string): Promise<void> {
-    customerId = value ? Number(value) : ''
-    saleInvoiceId = ''
-    invoiceLines = []
-    invoiceLinesError = ''
-    customerInvoices = []
-    if (customerId === '') return
-    customerInvoicesLoading = true
-    try {
-      // Only a POSTED invoice can be returned against (sale-returns.service.ts).
-      const result = await salesApi.listSaleInvoices({ customerId, status: 'posted', limit: 200 })
-      customerInvoices = result.saleInvoices
-    } catch (err) {
-      invoiceLinesError =
-        err instanceof ApiError ? err.detail : err instanceof ApiNetworkError ? err.message : 'Could not load this customer’s invoices.'
-    } finally {
-      customerInvoicesLoading = false
+  /** POST /sale-returns/lookup-invoice -- real per-line qtyAlreadyReturned/qtyReturnable, used to
+   *  pre-fill the return form against actual prior-sale data instead of guessing full sold qty.
+   *  Best-effort as of the moment it runs -- createAndPost's own locked re-check is what is
+   *  actually authoritative at submit time (same relationship preview has to createCashSale, see
+   *  that service method's own doc comment). */
+  async function performLookup(): Promise<void> {
+    const docNumber = lookupDocNumber.trim()
+    if (!docNumber) {
+      lookupError = 'Enter the original sale invoice’s doc number.'
+      return
     }
-  }
-
-  async function handleInvoiceChange(value: string): Promise<void> {
-    saleInvoiceId = value ? Number(value) : ''
+    lookupLoading = true
+    lookupError = ''
+    lookupResult = null
     invoiceLines = []
-    invoiceLinesError = ''
-    if (saleInvoiceId === '') return
-    invoiceLinesLoading = true
+    customerId = ''
+    saleInvoiceId = ''
+    formErrors = {}
     try {
-      const result = await salesApi.getSaleInvoice(saleInvoiceId)
-      invoiceLines = result.lines.map((line: SaleInvoiceLineRow) => ({
+      const result = await salesApi.lookupSaleReturnInvoice(docNumber)
+      lookupResult = result
+      customerId = result.invoice.customerId
+      saleInvoiceId = result.invoice.saleInvoiceId
+      invoiceLines = result.lines.map((line) => ({
         saleInvoiceLineId: line.saleInvoiceLineId,
         itemId: line.itemId,
         stockLotId: line.stockLotId,
         soldQty: line.qtyBase,
+        qtyAlreadyReturned: line.qtyAlreadyReturned,
+        qtyReturnable: line.qtyReturnable,
         unitSalePrice: line.unitSalePrice,
         include: false,
-        returnQty: line.qtyBase,
+        returnQty: line.qtyReturnable,
       }))
     } catch (err) {
-      invoiceLinesError =
-        err instanceof ApiError ? err.detail : err instanceof ApiNetworkError ? err.message : 'Could not load this invoice’s lines.'
+      lookupError = err instanceof ApiError ? err.detail : err instanceof ApiNetworkError ? err.message : 'Could not find that invoice.'
     } finally {
-      invoiceLinesLoading = false
+      lookupLoading = false
     }
+  }
+
+  function resetLookup(): void {
+    lookupDocNumber = ''
+    lookupError = ''
+    lookupResult = null
+    invoiceLines = []
+    customerId = ''
+    saleInvoiceId = ''
   }
 
   function toggleLine(index: number, include: boolean): void {
@@ -238,8 +337,7 @@
 
   function validate(): boolean {
     const nextErrors: Record<string, string> = {}
-    if (customerId === '') nextErrors.customerId = 'Select a customer.'
-    if (saleInvoiceId === '') nextErrors.saleInvoiceId = 'Select the invoice being returned against.'
+    if (!lookupResult || customerId === '' || saleInvoiceId === '') nextErrors.lookup = 'Look up the original invoice first.'
     if (!documentDate) nextErrors.documentDate = 'Document date is required.'
     if (selectedLines.length === 0) {
       nextErrors.lines = 'Include at least one line to return.'
@@ -247,6 +345,10 @@
       for (const line of selectedLines) {
         if (isZeroOrEmpty(line.returnQty)) {
           nextErrors.lines = 'Each included line needs a return quantity greater than zero.'
+          break
+        }
+        if (Number(line.returnQty) > Number(line.qtyReturnable)) {
+          nextErrors.lines = `Return qty for ${itemMap.get(line.itemId)?.name ?? `item #${line.itemId}`} exceeds what is still returnable.`
           break
         }
       }
@@ -477,8 +579,97 @@
           </div>
         </div>
       </div>
+
+      <div class="flex items-center justify-end gap-3 pt-2 border-t border-secondary-200 dark:border-secondary-700">
+        <button
+          type="button"
+          class="px-4 py-2.5 rounded-xl text-sm font-medium border border-danger-300 dark:border-danger-700 text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          disabled={detailResult.saleReturn.status !== 'posted'}
+          on:click={openCancel}
+        >
+          Cancel return
+        </button>
+        <button
+          type="button"
+          class="px-4 py-2.5 rounded-xl text-sm font-medium bg-danger-600 text-white hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+          disabled={detailResult.saleReturn.status !== 'posted'}
+          on:click={openReverse}
+        >
+          Reverse return
+        </button>
+      </div>
     </div>
   {/if}
+</Modal>
+
+<!-- Cancel confirm -->
+<Modal open={cancelOpen} title={detailResult ? `Cancel ${detailResult.saleReturn.docNumber}` : 'Cancel sale return'} widthClass="max-w-md" onClose={closeCancelModal}>
+  {#if detailResult}
+    <div class="space-y-4">
+      <p class="text-sm text-secondary-700 dark:text-secondary-300">
+        This voids sale return {detailResult.saleReturn.docNumber}: the returned stock is pulled back out of its lot and the GL
+        posting is reversed. Only possible while that lot is untouched since this return posted -- if it has since moved, reverse
+        instead.
+      </p>
+      <div>
+        <label class={labelClass} for="cancel-return-reason">Reason (optional)</label>
+        <textarea id="cancel-return-reason" bind:value={cancelReason} rows="2" class={inputClass} placeholder="Why is this return being cancelled?"></textarea>
+      </div>
+    </div>
+  {/if}
+  <svelte:fragment slot="footer">
+    <button
+      type="button"
+      class="px-4 py-2.5 rounded-xl text-sm font-medium bg-surface-100 dark:bg-surface-800 text-secondary-700 dark:text-secondary-300 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
+      on:click={closeCancelModal}
+      disabled={cancelSubmitting}
+    >
+      Back
+    </button>
+    <button
+      type="button"
+      class="px-4 py-2.5 rounded-xl text-sm font-medium bg-danger-600 text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+      on:click={confirmCancel}
+      disabled={cancelSubmitting}
+    >
+      {cancelSubmitting ? 'Cancelling…' : 'Confirm cancel'}
+    </button>
+  </svelte:fragment>
+</Modal>
+
+<!-- Reverse confirm -->
+<Modal open={reverseOpen} title={detailResult ? `Reverse ${detailResult.saleReturn.docNumber}` : 'Reverse sale return'} widthClass="max-w-md" onClose={closeReverseModal}>
+  {#if detailResult}
+    <div class="space-y-4">
+      <p class="text-sm text-secondary-700 dark:text-secondary-300">
+        This posts an unconditional compensating entry for sale return {detailResult.saleReturn.docNumber}: the returned stock is
+        pulled back out and the GL posting is reversed, even if the lot has had other activity since. Still 422s if the stock has
+        genuinely since been consumed elsewhere.
+      </p>
+      <div>
+        <label class={labelClass} for="reverse-return-reason">Reason (optional)</label>
+        <textarea id="reverse-return-reason" bind:value={reverseReason} rows="2" class={inputClass} placeholder="Why is this return being reversed?"></textarea>
+      </div>
+    </div>
+  {/if}
+  <svelte:fragment slot="footer">
+    <button
+      type="button"
+      class="px-4 py-2.5 rounded-xl text-sm font-medium bg-surface-100 dark:bg-surface-800 text-secondary-700 dark:text-secondary-300 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
+      on:click={closeReverseModal}
+      disabled={reverseSubmitting}
+    >
+      Back
+    </button>
+    <button
+      type="button"
+      class="px-4 py-2.5 rounded-xl text-sm font-medium bg-danger-600 text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+      on:click={confirmReverse}
+      disabled={reverseSubmitting}
+    >
+      {reverseSubmitting ? 'Reversing…' : 'Confirm reverse'}
+    </button>
+  </svelte:fragment>
 </Modal>
 
 <Modal open={createOpen} title="New sale return" widthClass="max-w-4xl" onClose={closeCreate}>
@@ -493,43 +684,66 @@
   {/if}
 
   <div class="space-y-6">
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div>
-        <label class={labelClass} for="sr-customer">Customer<span class="text-danger-500"> *</span></label>
-        <select
-          id="sr-customer"
-          value={customerId}
-          on:change={(e) => handleCustomerChange((e.currentTarget as HTMLSelectElement).value)}
+    <div>
+      <label class={labelClass} for="sr-lookup-doc">Original sale invoice doc number<span class="text-danger-500"> *</span></label>
+      <div class="flex gap-2">
+        <input
+          id="sr-lookup-doc"
+          bind:value={lookupDocNumber}
           class={inputClass}
+          placeholder="e.g. SV-000123"
+          disabled={lookupLoading}
+          on:keydown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              performLookup()
+            }
+          }}
+        />
+        <button
+          type="button"
+          class="px-4 py-2.5 rounded-xl text-sm font-medium bg-theme-primary text-white hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
+          on:click={performLookup}
+          disabled={lookupLoading}
         >
-          <option value="">Select customer…</option>
-          {#each customers as c (c.customerId)}
-            <option value={c.customerId}>{c.name}{c.isWalkIn ? ' (Walk-in)' : ''}</option>
-          {/each}
-        </select>
-        {#if formErrors.customerId}<p class="text-xs text-danger-500 mt-1">{formErrors.customerId}</p>{/if}
+          {lookupLoading ? 'Looking up…' : 'Look up'}
+        </button>
       </div>
-      <div>
-        <label class={labelClass} for="sr-invoice">Against invoice<span class="text-danger-500"> *</span></label>
-        <select
-          id="sr-invoice"
-          value={saleInvoiceId}
-          on:change={(e) => handleInvoiceChange((e.currentTarget as HTMLSelectElement).value)}
-          class={inputClass}
-          disabled={customerId === '' || customerInvoicesLoading}
-        >
-          <option value="">{customerInvoicesLoading ? 'Loading…' : 'Select invoice…'}</option>
-          {#each customerInvoices as inv (inv.saleInvoiceId)}
-            <option value={inv.saleInvoiceId}>{inv.docNumber} — {formatDate(inv.documentDate)}</option>
-          {/each}
-        </select>
-        {#if customerId !== '' && !customerInvoicesLoading && customerInvoices.length === 0}
-          <p class="text-xs text-secondary-400 mt-1">No posted invoices for this customer.</p>
-        {/if}
-        {#if formErrors.saleInvoiceId}<p class="text-xs text-danger-500 mt-1">{formErrors.saleInvoiceId}</p>{/if}
+      {#if lookupError}<p class="text-xs text-danger-500 mt-1">{lookupError}</p>{/if}
+      {#if formErrors.lookup}<p class="text-xs text-danger-500 mt-1">{formErrors.lookup}</p>{/if}
+    </div>
+
+    {#if lookupResult}
+      <div class="rounded-xl border border-secondary-200 dark:border-secondary-700 p-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div>
+          <p class="text-xs text-secondary-500">Customer</p>
+          <p class="text-sm font-medium text-secondary-900 dark:text-white">
+            {customerMap.get(lookupResult.invoice.customerId) ?? `Customer #${lookupResult.invoice.customerId}`}
+          </p>
+        </div>
+        <div>
+          <p class="text-xs text-secondary-500">Invoice</p>
+          <p class="text-sm font-medium text-secondary-900 dark:text-white">{lookupResult.invoice.docNumber}</p>
+        </div>
+        <div>
+          <p class="text-xs text-secondary-500">Invoice date</p>
+          <p class="text-sm font-medium text-secondary-900 dark:text-white">{formatDate(lookupResult.invoice.documentDate)}</p>
+        </div>
+        <div>
+          <p class="text-xs text-secondary-500">Invoice total</p>
+          <p class="text-sm font-medium text-secondary-900 dark:text-white">{formatMoney(lookupResult.invoice.invoiceTotal)}</p>
+        </div>
+        <div class="col-span-2 sm:col-span-4">
+          <button type="button" class="text-xs font-medium text-theme-primary hover:opacity-80" on:click={resetLookup}>
+            Look up a different invoice
+          </button>
+        </div>
       </div>
+    {/if}
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <div>
-        <label class={labelClass} for="sr-document-date">Document date<span class="text-danger-500"> *</span></label>
+        <label class={labelClass} for="sr-document-date">Return document date<span class="text-danger-500"> *</span></label>
         <input id="sr-document-date" type="date" bind:value={documentDate} class={inputClass} />
         {#if formErrors.documentDate}<p class="text-xs text-danger-500 mt-1">{formErrors.documentDate}</p>{/if}
       </div>
@@ -538,39 +752,45 @@
     <div>
       <h3 class="text-sm font-semibold text-secondary-900 dark:text-white mb-3">Lines to return</h3>
 
-      {#if invoiceLinesError}
-        <p class="text-xs text-danger-500 mb-3">{invoiceLinesError}</p>
-      {/if}
       {#if formErrors.lines}<p class="text-xs text-danger-500 mb-3">{formErrors.lines}</p>{/if}
 
-      {#if invoiceLinesLoading}
-        <p class="text-sm text-secondary-500">Loading invoice lines…</p>
-      {:else if saleInvoiceId === ''}
-        <p class="text-sm text-secondary-500">Select a customer and an invoice to list its lines.</p>
+      {#if !lookupResult}
+        <p class="text-sm text-secondary-500">Look up the original invoice above to list its lines.</p>
       {:else if invoiceLines.length === 0}
         <p class="text-sm text-secondary-500">This invoice has no lines.</p>
       {:else}
         <div class="space-y-3">
           {#each invoiceLines as line, index (line.saleInvoiceLineId)}
+            {@const returnable = Number(line.qtyReturnable) > 0}
             <div class="rounded-xl border border-secondary-200 dark:border-secondary-700 p-4 space-y-3">
-              <label class="flex items-start gap-3 cursor-pointer">
+              <label class={`flex items-start gap-3 ${returnable ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>
                 <input
                   type="checkbox"
                   class="mt-1"
                   checked={line.include}
+                  disabled={!returnable}
                   on:change={(e) => toggleLine(index, (e.currentTarget as HTMLInputElement).checked)}
                 />
                 <div class="flex-1">
                   <p class="text-sm font-medium text-secondary-900 dark:text-white">
                     {itemMap.get(line.itemId)?.name ?? `Item #${line.itemId}`}
                   </p>
-                  <p class="text-xs text-secondary-500">Lot #{line.stockLotId} · sold {formatQty(line.soldQty)}</p>
+                  <p class="text-xs text-secondary-500">
+                    Lot #{line.stockLotId} · sold {formatQty(line.soldQty)} · already returned {formatQty(line.qtyAlreadyReturned)} ·
+                    returnable {formatQty(line.qtyReturnable)}
+                  </p>
                 </div>
               </label>
 
               {#if line.include}
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 pl-7">
-                  <DecimalInput bind:value={line.returnQty} label="Return qty" id={`sr-line-qty-${index}`} required />
+                  <DecimalInput
+                    bind:value={line.returnQty}
+                    label="Return qty"
+                    id={`sr-line-qty-${index}`}
+                    required
+                    error={Number(line.returnQty) > Number(line.qtyReturnable) ? `Exceeds returnable qty (${formatQty(line.qtyReturnable)})` : ''}
+                  />
                 </div>
               {/if}
             </div>
@@ -603,7 +823,7 @@
       type="button"
       class="px-4 py-2.5 rounded-xl text-sm font-medium bg-theme-primary text-white hover:opacity-90 transition-opacity disabled:opacity-50"
       on:click={submitCreate}
-      disabled={createLoading || createDataLoading}
+      disabled={createLoading || createDataLoading || !lookupResult}
     >
       {createLoading ? 'Submitting…' : 'Submit'}
     </button>

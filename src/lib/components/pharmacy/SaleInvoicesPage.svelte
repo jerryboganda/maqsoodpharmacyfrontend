@@ -29,6 +29,10 @@
     SaleLineInput,
     SalePaymentInput,
   } from '../../api'
+  // Wave 7 lifecycle-action types are local to sales.ts, not re-exported through the './api'
+  // barrel (types.ts) -- same "import the module file directly" precedent PaymentMethodsPage.svelte
+  // follows for PaymentCashBankAccountRow (see payments.ts's own header comment).
+  import type { CancelSaleInvoiceInput, ReverseSaleInvoiceInput, SaleInvoicePrintResult } from '../../api/sales'
 
   // Rule M (rebuild/CLAUDE.md "Money and quantities"): qty/unitSalePrice/amount are decimal
   // STRINGS end to end. itemId/paymentMethodId are plain ids, not money/qty, so `number | ''`
@@ -156,6 +160,134 @@
   function closeDetail(): void {
     detailOpen = false
     detail = null
+    cancelOpen = false
+    reverseOpen = false
+    printOpen = false
+    printResult = null
+  }
+
+  function toastApiError(err: unknown, fallback: string): void {
+    if (err instanceof ApiError) toast.error(err.detail || err.message)
+    else if (err instanceof ApiNetworkError) toast.error(err.message)
+    else toast.error(fallback)
+  }
+
+  // ---- Cancel invoice (Wave 7) --------------------------------------------------------------
+  // Only enabled when detail.saleInvoice.status === 'posted' (see the template). The 422 this can
+  // throw -- SALES.HAS_ACTIVE_RETURNS, when an active sale_return still references the invoice --
+  // carries its own actionable `detail` message ("reverse or cancel the sale return(s) first,
+  // then retry"); toastApiError surfaces that real message, not a generic failure.
+  let cancelOpen = false
+  let cancelReason = ''
+  let cancelSubmitting = false
+
+  function openCancel(): void {
+    cancelReason = ''
+    cancelOpen = true
+  }
+  function closeCancelModal(): void {
+    if (cancelSubmitting) return
+    cancelOpen = false
+  }
+  async function confirmCancel(): Promise<void> {
+    if (!detail) return
+    cancelSubmitting = true
+    try {
+      const input: CancelSaleInvoiceInput = {}
+      if (cancelReason.trim()) input.reason = cancelReason.trim()
+      const result = await salesApi.cancelSaleInvoice(detail.saleInvoice.saleInvoiceId, input, api.newIdempotencyKey())
+      toast.success(`Sale invoice ${result.saleInvoice.docNumber} cancelled.`)
+      cancelOpen = false
+      detail = result
+      await refreshInvoices()
+    } catch (err) {
+      toastApiError(err, 'Could not cancel this sale invoice.')
+    } finally {
+      cancelSubmitting = false
+    }
+  }
+
+  // ---- Reverse invoice (Wave 7) -------------------------------------------------------------
+  // Same enable condition as cancel (status === 'posted'). As of this wave reverse ALSO 422s
+  // SALES.HAS_ACTIVE_RETURNS while an active sale_return references the invoice (sale-
+  // invoices.service.ts's reverse doc comment -- a live-bug fix, not a doc-only note) -- the same
+  // toastApiError path surfaces that real detail message here too.
+  let reverseOpen = false
+  let reverseReason = ''
+  let reverseSubmitting = false
+
+  function openReverse(): void {
+    reverseReason = ''
+    reverseOpen = true
+  }
+  function closeReverseModal(): void {
+    if (reverseSubmitting) return
+    reverseOpen = false
+  }
+  async function confirmReverse(): Promise<void> {
+    if (!detail) return
+    reverseSubmitting = true
+    try {
+      const input: ReverseSaleInvoiceInput = {}
+      if (reverseReason.trim()) input.reason = reverseReason.trim()
+      const result = await salesApi.reverseSaleInvoice(detail.saleInvoice.saleInvoiceId, input, api.newIdempotencyKey())
+      toast.success(`Sale invoice ${result.saleInvoice.docNumber} reversed.`)
+      reverseOpen = false
+      detail = result
+      await refreshInvoices()
+    } catch (err) {
+      toastApiError(err, 'Could not reverse this sale invoice.')
+    } finally {
+      reverseSubmitting = false
+    }
+  }
+
+  // ---- Print / reprint (Wave 7) -------------------------------------------------------------
+  // "Print" loads the read-only receipt via GET :id/print (no audit trail -- just viewing).
+  // "Reprint" inside that same modal re-fetches via POST :id/reprint instead, so the global
+  // AuditInterceptor records the explicit reprint action, then triggers the same window.print().
+  // Receipt markup mirrors POSCheckoutPage.svelte's own #pos-receipt rendering (already landed --
+  // reused here rather than re-invented), scoped to its own id so the two pages' print
+  // stylesheets never collide if both are ever open in the same tab's history.
+  let printOpen = false
+  let printLoading = false
+  let printError = ''
+  let printResult: SaleInvoicePrintResult | null = null
+  let reprintSubmitting = false
+
+  async function openPrint(): Promise<void> {
+    if (!detail) return
+    printOpen = true
+    printLoading = true
+    printError = ''
+    printResult = null
+    try {
+      printResult = await salesApi.printSaleInvoice(detail.saleInvoice.saleInvoiceId)
+    } catch (err) {
+      printError = err instanceof ApiError ? err.detail || err.message : err instanceof ApiNetworkError ? err.message : 'Could not load the receipt.'
+    } finally {
+      printLoading = false
+    }
+  }
+  function closePrintModal(): void {
+    printOpen = false
+    printResult = null
+  }
+  async function performReprint(): Promise<void> {
+    if (!detail) return
+    reprintSubmitting = true
+    try {
+      printResult = await salesApi.reprintSaleInvoice(detail.saleInvoice.saleInvoiceId, api.newIdempotencyKey())
+      toast.success('Reprint recorded.')
+      windowPrint()
+    } catch (err) {
+      toastApiError(err, 'Could not reprint this receipt.')
+    } finally {
+      reprintSubmitting = false
+    }
+  }
+  function windowPrint(): void {
+    window.print()
   }
 
   function resetCreateForm(): void {
@@ -451,8 +583,196 @@
           </div>
         </div>
       </div>
+
+      <div class="flex items-center justify-end gap-3 pt-2 border-t border-surface-200 dark:border-surface-700">
+        <button
+          type="button"
+          class="px-4 py-2.5 rounded-xl text-sm font-medium border border-secondary-200 dark:border-secondary-700 text-secondary-700 dark:text-secondary-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+          on:click={openPrint}
+        >
+          Print
+        </button>
+        <button
+          type="button"
+          class="px-4 py-2.5 rounded-xl text-sm font-medium border border-danger-300 dark:border-danger-700 text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          disabled={detail.saleInvoice.status !== 'posted'}
+          on:click={openCancel}
+        >
+          Cancel invoice
+        </button>
+        <button
+          type="button"
+          class="px-4 py-2.5 rounded-xl text-sm font-medium bg-danger-600 text-white hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+          disabled={detail.saleInvoice.status !== 'posted'}
+          on:click={openReverse}
+        >
+          Reverse invoice
+        </button>
+      </div>
     </div>
   {/if}
+</Modal>
+
+<!-- Cancel confirm -->
+<Modal open={cancelOpen} title={detail ? `Cancel ${detail.saleInvoice.docNumber}` : 'Cancel sale invoice'} widthClass="max-w-md" onClose={closeCancelModal}>
+  {#if detail}
+    <div class="space-y-4">
+      <p class="text-sm text-secondary-700 dark:text-secondary-300">
+        This voids sale invoice {detail.saleInvoice.docNumber}: the dispensed stock is put back and the GL posting is reversed. This
+        cannot be undone from here.
+      </p>
+      <div>
+        <label class={labelClass} for="cancel-invoice-reason">Reason (optional)</label>
+        <textarea id="cancel-invoice-reason" bind:value={cancelReason} rows="2" class={inputClass} placeholder="Why is this invoice being cancelled?"></textarea>
+      </div>
+    </div>
+  {/if}
+  <svelte:fragment slot="footer">
+    <button
+      type="button"
+      class="px-4 py-2.5 rounded-xl text-sm font-medium bg-surface-100 dark:bg-surface-800 text-secondary-700 dark:text-secondary-300 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
+      on:click={closeCancelModal}
+      disabled={cancelSubmitting}
+    >
+      Back
+    </button>
+    <button
+      type="button"
+      class="px-4 py-2.5 rounded-xl text-sm font-medium bg-danger-600 text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+      on:click={confirmCancel}
+      disabled={cancelSubmitting}
+    >
+      {cancelSubmitting ? 'Cancelling…' : 'Confirm cancel'}
+    </button>
+  </svelte:fragment>
+</Modal>
+
+<!-- Reverse confirm -->
+<Modal open={reverseOpen} title={detail ? `Reverse ${detail.saleInvoice.docNumber}` : 'Reverse sale invoice'} widthClass="max-w-md" onClose={closeReverseModal}>
+  {#if detail}
+    <div class="space-y-4">
+      <p class="text-sm text-secondary-700 dark:text-secondary-300">
+        This posts an unconditional compensating entry for sale invoice {detail.saleInvoice.docNumber}: stock and GL are reversed the
+        same way as a cancel. If a sale return still actively references this invoice, reverse or cancel that return first.
+      </p>
+      <div>
+        <label class={labelClass} for="reverse-invoice-reason">Reason (optional)</label>
+        <textarea id="reverse-invoice-reason" bind:value={reverseReason} rows="2" class={inputClass} placeholder="Why is this invoice being reversed?"></textarea>
+      </div>
+    </div>
+  {/if}
+  <svelte:fragment slot="footer">
+    <button
+      type="button"
+      class="px-4 py-2.5 rounded-xl text-sm font-medium bg-surface-100 dark:bg-surface-800 text-secondary-700 dark:text-secondary-300 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
+      on:click={closeReverseModal}
+      disabled={reverseSubmitting}
+    >
+      Back
+    </button>
+    <button
+      type="button"
+      class="px-4 py-2.5 rounded-xl text-sm font-medium bg-danger-600 text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+      on:click={confirmReverse}
+      disabled={reverseSubmitting}
+    >
+      {reverseSubmitting ? 'Reversing…' : 'Confirm reverse'}
+    </button>
+  </svelte:fragment>
+</Modal>
+
+<!-- Print / reprint receipt -->
+<Modal open={printOpen} title={detail ? `Receipt -- ${detail.saleInvoice.docNumber}` : 'Receipt'} widthClass="max-w-lg" onClose={closePrintModal}>
+  {#if printLoading}
+    <p class="text-sm text-secondary-500">Loading receipt…</p>
+  {:else if printError}
+    <div class="card border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950 text-danger-700 dark:text-danger-300 p-4 text-sm">
+      {printError}
+    </div>
+  {:else if printResult}
+    <div class="space-y-4">
+      <div id="sale-invoice-receipt" class="card rounded-xl p-6 font-mono text-sm">
+        <div class="text-center mb-4 pb-4 border-b border-dashed border-secondary-300 dark:border-secondary-700">
+          {#if printResult.header.tenantName}<p class="font-semibold text-base">{printResult.header.tenantName}</p>{/if}
+          {#if printResult.header.branchName}<p class="text-xs text-secondary-500">{printResult.header.branchName}</p>{/if}
+          <p class="mt-2 font-semibold">{printResult.header.docNumber}</p>
+          <p class="text-xs text-secondary-500">
+            {formatDate(printResult.header.documentDate)} -- {printResult.header.customer.name ?? 'Walk-in customer'}
+          </p>
+          <p class="text-xs text-secondary-400 uppercase">{printResult.header.status}</p>
+        </div>
+
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="border-b border-secondary-300 dark:border-secondary-700">
+              <th class="text-left py-1">Item</th>
+              <th class="text-right py-1">Qty</th>
+              <th class="text-right py-1">Price</th>
+              <th class="text-right py-1">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each printResult.lines as line (line.lineNo)}
+              <tr class="border-b border-dashed border-secondary-200 dark:border-secondary-800">
+                <td class="py-1 pr-2">{line.itemName} <span class="text-secondary-400">({line.itemCode})</span></td>
+                <td class="py-1 text-right">{line.qty}</td>
+                <td class="py-1 text-right">{formatMoney(line.unitSalePrice)}</td>
+                <td class="py-1 text-right">{formatMoney(line.lineNetAmount)}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+
+        <div class="mt-4 pt-4 border-t border-dashed border-secondary-300 dark:border-secondary-700 space-y-1 text-xs">
+          <div class="flex justify-between"><span>Gross</span><span>{formatMoney(printResult.grossAmount)}</span></div>
+          {#if Number(printResult.lineDiscountAmount) > 0}<div class="flex justify-between"><span>Line discount</span><span>-{formatMoney(printResult.lineDiscountAmount)}</span></div>{/if}
+          {#if Number(printResult.invoiceDiscountAmount) > 0}<div class="flex justify-between"><span>Invoice discount</span><span>-{formatMoney(printResult.invoiceDiscountAmount)}</span></div>{/if}
+          {#if Number(printResult.taxBreakdown.salesTaxAmount) > 0}<div class="flex justify-between"><span>Sales tax</span><span>{formatMoney(printResult.taxBreakdown.salesTaxAmount)}</span></div>{/if}
+          {#if Number(printResult.roundingAmount) !== 0}<div class="flex justify-between"><span>Rounding</span><span>{formatMoney(printResult.roundingAmount)}</span></div>{/if}
+          <div class="flex justify-between text-sm font-bold pt-1 border-t border-secondary-300 dark:border-secondary-700"><span>Total</span><span>{formatMoney(printResult.invoiceTotal)}</span></div>
+        </div>
+
+        <div class="mt-4 pt-4 border-t border-dashed border-secondary-300 dark:border-secondary-700 space-y-1 text-xs">
+          {#each printResult.payments as payment (payment.sequenceNo)}
+            <div class="flex justify-between">
+              <span>{payment.methodName}{#if payment.referenceNo} (#{payment.referenceNo}){/if}</span>
+              <span>{formatMoney(payment.amount)}</span>
+            </div>
+          {/each}
+          {#if Number(printResult.changeAmount) > 0}
+            <div class="flex justify-between font-semibold"><span>Change</span><span>{formatMoney(printResult.changeAmount)}</span></div>
+          {/if}
+        </div>
+
+        <p class="text-center text-xs text-secondary-400 mt-6">Thank you</p>
+      </div>
+    </div>
+  {/if}
+  <svelte:fragment slot="footer">
+    <button
+      type="button"
+      class="px-4 py-2.5 rounded-xl text-sm font-medium bg-surface-100 dark:bg-surface-800 text-secondary-700 dark:text-secondary-300 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
+      on:click={closePrintModal}
+    >
+      Close
+    </button>
+    <button
+      type="button"
+      class="px-4 py-2.5 rounded-xl text-sm font-medium border border-secondary-200 dark:border-secondary-700 text-secondary-700 dark:text-secondary-300 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors disabled:opacity-50"
+      on:click={windowPrint}
+      disabled={!printResult}
+    >
+      Print
+    </button>
+    <button
+      type="button"
+      class="px-4 py-2.5 rounded-xl text-sm font-medium bg-theme-primary text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+      on:click={performReprint}
+      disabled={!printResult || reprintSubmitting}
+    >
+      {reprintSubmitting ? 'Reprinting…' : 'Reprint (audited)'}
+    </button>
+  </svelte:fragment>
 </Modal>
 
 <Modal open={createOpen} title="New sale" widthClass="max-w-4xl" onClose={closeCreateModal}>
@@ -624,3 +944,23 @@
     </button>
   </svelte:fragment>
 </Modal>
+
+<style>
+  /* Isolates #sale-invoice-receipt for window.print() -- same technique POSCheckoutPage.svelte's
+     own #pos-receipt print stylesheet uses, scoped to a different id so the two never collide. */
+  @media print {
+    :global(body *) {
+      visibility: hidden;
+    }
+    :global(#sale-invoice-receipt),
+    :global(#sale-invoice-receipt *) {
+      visibility: visible;
+    }
+    :global(#sale-invoice-receipt) {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+    }
+  }
+</style>

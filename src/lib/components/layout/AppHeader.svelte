@@ -127,6 +127,7 @@
     if (path.startsWith('/pharmacy/purchasing/invoices')) return [{ title: 'Pharmacy', href: '/pharmacy' }, { title: 'Purchasing', href: '/pharmacy/purchasing/suppliers' }, { title: 'Invoices' }]
     if (path.startsWith('/pharmacy/purchasing/orders')) return [{ title: 'Pharmacy', href: '/pharmacy' }, { title: 'Purchasing', href: '/pharmacy/purchasing/suppliers' }, { title: 'Orders' }]
     if (path.startsWith('/pharmacy/purchasing/returns')) return [{ title: 'Pharmacy', href: '/pharmacy' }, { title: 'Purchasing', href: '/pharmacy/purchasing/suppliers' }, { title: 'Returns' }]
+    if (path.startsWith('/pharmacy/sales/pos')) return [{ title: 'Pharmacy', href: '/pharmacy' }, { title: 'Sales', href: '/pharmacy/sales/customers' }, { title: 'POS Checkout' }]
     if (path.startsWith('/pharmacy/sales/customers')) return [{ title: 'Pharmacy', href: '/pharmacy' }, { title: 'Sales', href: '/pharmacy/sales/customers' }, { title: 'Customers' }]
     if (path.startsWith('/pharmacy/sales/invoices')) return [{ title: 'Pharmacy', href: '/pharmacy' }, { title: 'Sales', href: '/pharmacy/sales/customers' }, { title: 'Invoices' }]
     if (path.startsWith('/pharmacy/sales/returns')) return [{ title: 'Pharmacy', href: '/pharmacy' }, { title: 'Sales', href: '/pharmacy/sales/customers' }, { title: 'Returns' }]

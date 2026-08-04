@@ -48,6 +48,7 @@
   import CustomersPage from './pharmacy/CustomersPage.svelte'
   import SaleInvoicesPage from './pharmacy/SaleInvoicesPage.svelte'
   import SaleReturnsPage from './pharmacy/SaleReturnsPage.svelte'
+  import POSCheckoutPage from './pharmacy/POSCheckoutPage.svelte'
   import SettingsOptionsPage from './pharmacy/SettingsOptionsPage.svelte'
   import UsersRolesPage from './pharmacy/UsersRolesPage.svelte'
   import ChartOfAccountsPage from './pharmacy/ChartOfAccountsPage.svelte'
@@ -67,7 +68,7 @@
   let authCard = false
   const exactRoutes = new Set([
     '/dashboard', '/dashboard/analytics', '/dashboard/ecommerce', '/dashboard/crm', '/app/email', '/app/calendar', '/app/blog', '/app/blog/create', '/app/contacts', '/app/chat', '/app/chat/voice-call', '/app/chat/video-call', '/app/ecommerce/products', '/app/ecommerce/products/create', '/app/ecommerce/checkout', '/app/notes', '/app/kanban', '/forms/layout', '/forms/validation', '/forms/editor', '/tables/simple', '/tables/data', '/tables/crud', '/charts/line', '/charts/area', '/charts/columns', '/charts/pie', '/charts/radar', '/charts/candlestick', '/pages/pricing', '/pages/account-settings', '/pages/gallery', '/pages/faq', '/pages/typography', '/features/rule-engine', '/features/query-builder', '/features/simulation', '/features/insights', '/features/workflow-builder', '/features/approval-engine', '/features/task-scheduler', '/features/notification-pipeline', '/auth/login', '/auth/register', '/auth/forgot-password', '/auth-card/login', '/auth-card/register', '/auth-card/forgot-password',
-    '/pharmacy', '/pharmacy/login', '/pharmacy/inventory', '/pharmacy/inventory/adjustments', '/pharmacy/inventory/stock-takes', '/pharmacy/inventory/items', '/pharmacy/inventory/expiry', '/pharmacy/purchasing/suppliers', '/pharmacy/purchasing/invoices', '/pharmacy/purchasing/orders', '/pharmacy/purchasing/returns', '/pharmacy/sales/customers', '/pharmacy/sales/invoices', '/pharmacy/sales/returns', '/pharmacy/settings/options', '/pharmacy/settings/users',
+    '/pharmacy', '/pharmacy/login', '/pharmacy/inventory', '/pharmacy/inventory/adjustments', '/pharmacy/inventory/stock-takes', '/pharmacy/inventory/items', '/pharmacy/inventory/expiry', '/pharmacy/purchasing/suppliers', '/pharmacy/purchasing/invoices', '/pharmacy/purchasing/orders', '/pharmacy/purchasing/returns', '/pharmacy/sales/customers', '/pharmacy/sales/invoices', '/pharmacy/sales/returns', '/pharmacy/sales/pos', '/pharmacy/settings/options', '/pharmacy/settings/users',
     '/pharmacy/accounting/chart-of-accounts', '/pharmacy/accounting/vouchers', '/pharmacy/accounting/cash-bank', '/pharmacy/payments/transactions', '/pharmacy/payments/methods', '/pharmacy/expenses/transactions', '/pharmacy/expenses/categories',
     '/pharmacy/reports', '/pharmacy/audit', '/pharmacy/notifications',
   ])
@@ -109,6 +110,8 @@
   <AdminShell showCustomizer={false}><SaleInvoicesPage /></AdminShell>
 {:else if path === '/pharmacy/sales/returns'}
   <AdminShell showCustomizer={false}><SaleReturnsPage /></AdminShell>
+{:else if path === '/pharmacy/sales/pos'}
+  <AdminShell showCustomizer={false}><POSCheckoutPage /></AdminShell>
 {:else if path === '/pharmacy/settings/options'}
   <AdminShell showCustomizer={false}><SettingsOptionsPage /></AdminShell>
 {:else if path === '/pharmacy/settings/users'}
