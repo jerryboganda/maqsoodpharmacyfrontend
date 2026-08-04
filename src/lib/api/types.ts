@@ -116,6 +116,47 @@ export interface ItemSummary {
   isActive: boolean;
 }
 
+/** GET /items/:id -- the raw `item` row (catalog.ts schema in the sibling `rebuild` repo), a
+ *  superset of `ItemSummary` with the fields the list endpoint doesn't project (registrationNo,
+ *  minQty/maxQty/reorderQty, shelfLifeDays, storageLocation, notes). Mirrors only the columns this
+ *  frontend actually consumes -- `tenantId`/`attributesJson`/`legacyId`/audit+soft-delete columns
+ *  are real response fields too but nothing here reads them. */
+export interface ItemDetail extends ItemSummary {
+  registrationNo: string | null;
+  minQty: string | null;
+  maxQty: string | null;
+  reorderQty: string | null;
+  shelfLifeDays: number | null;
+  storageLocation: string | null;
+  notes: string | null;
+}
+
+/**
+ * PATCH /items/:id body (item.dto.ts's `PatchItemSchema`, the source of truth). Every field
+ * optional, but the backend rejects an empty body -- send only the fields that actually changed.
+ * Money/quantity fields are Rule M decimal strings; `packUnits`/`shelfLifeDays` are plain integer
+ * counts (the schema itself types them as `number`, not a decimal-string archetype).
+ */
+export interface PatchItemInput {
+  customCode?: string;
+  name?: string;
+  nameLocal?: string;
+  registrationNo?: string;
+  packUnits?: number;
+  allowDecimalQty?: boolean;
+  salePrice?: string;
+  purchasePrice?: string;
+  minQty?: string;
+  maxQty?: string;
+  reorderQty?: string;
+  hasExpiry?: boolean;
+  expiryCaptureMode?: "required" | "prompt" | "off";
+  shelfLifeDays?: number;
+  storageLocation?: string;
+  isControlledDrug?: boolean;
+  notes?: string;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Lookup lists
 // ---------------------------------------------------------------------------------------------
@@ -266,9 +307,18 @@ export interface SupplierRow {
   name: string;
   nameUr: string | null;
   glAccountId: number;
+  ntnNo: string | null;
+  strnNo: string | null;
+  cnicNo: string | null;
   phone: string | null;
   mobile: string | null;
   email: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  creditDays: number | null;
+  leadTimeDays: number | null;
+  specialInstructions: string | null;
   isActive: boolean;
 }
 
@@ -288,6 +338,41 @@ export interface CreateSupplierInput {
   creditDays?: number;
   leadTimeDays?: number;
   specialInstructions?: string;
+}
+
+/** PATCH /suppliers/:id -- every field optional (server rejects an empty body), never
+ *  `glAccountId`/`isActive` (see UpdateSupplierSchema's doc comment on the backend). */
+export type UpdateSupplierInput = Partial<CreateSupplierInput>;
+
+/** One `journal_line` posted against the supplier's own GL control account, joined to its
+ *  parent `journal_entry`, plus the running balance SupplierService.getLedger folds in. */
+export interface SupplierLedgerLineRow {
+  journalLineId: number;
+  lineNo: number;
+  debitAmount: string;
+  creditAmount: string;
+  legRole: string;
+  memo: string | null;
+  journalEntryId: number;
+  entryNo: string;
+  entryDate: string;
+  documentTypeCode: string;
+  sourceDocumentId: number | null;
+  description: string | null;
+  status: string;
+  /** Running balance after this line (credit-minus-debit fold; see backend doc comment). */
+  balance: string;
+}
+
+export interface SupplierLedgerResult {
+  supplierId: number;
+  glAccountId: number;
+  openingBalance: string;
+  lines: SupplierLedgerLineRow[];
+  closingBalance: string;
+  offset: number;
+  limit: number;
+  total: number;
 }
 
 export interface PurchaseInvoiceLineInput {
@@ -377,7 +462,19 @@ export interface CustomerRow {
   glAccountId: number;
   isWalkIn: boolean;
   phone: string | null;
+  mobile: string | null;
   email: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  ntnNo: string | null;
+  /** Column exists on `customer` but is not settable via Create/UpdateCustomerSchema -- always
+   *  null in practice today, see customer.dto.ts's field lists. Kept here for parity with the
+   *  raw row shape (CustomerRow = typeof customers.$inferSelect on the backend). */
+  strnNo: string | null;
+  cnicNo: string | null;
+  creditLimitAmount: string | null;
+  creditDays: number | null;
   isActive: boolean;
 }
 
@@ -395,6 +492,42 @@ export interface CreateCustomerInput {
   cnicNo?: string;
   creditLimitAmount?: string;
   creditDays?: number;
+}
+
+/** PATCH /customers/:id -- every field optional (server rejects an empty body), never
+ *  `glAccountId`/`isActive` (see UpdateCustomerSchema's doc comment on the backend). */
+export type UpdateCustomerInput = Partial<CreateCustomerInput>;
+
+/** One `journal_line` posted against the customer's own GL control account, joined to its
+ *  parent `journal_entry`, plus the running balance CustomersService.getLedger folds in. */
+export interface CustomerLedgerLineRow {
+  journalLineId: number;
+  lineNo: number;
+  debitAmount: string;
+  creditAmount: string;
+  legRole: string;
+  memo: string | null;
+  journalEntryId: number;
+  entryNo: string;
+  entryDate: string;
+  documentTypeCode: string;
+  sourceDocumentId: number | null;
+  description: string | null;
+  status: string;
+  /** Running balance after this line (debit-minus-credit fold; asset/debit-normal, the mirror
+   *  image of SupplierLedgerLineRow's balance -- see backend doc comment). */
+  balance: string;
+}
+
+export interface CustomerLedgerResult {
+  customerId: number;
+  glAccountId: number;
+  openingBalance: string;
+  lines: CustomerLedgerLineRow[];
+  closingBalance: string;
+  offset: number;
+  limit: number;
+  total: number;
 }
 
 export interface SaleLineInput {

@@ -40,6 +40,7 @@
   import PharmacyDashboardPage from './pharmacy/PharmacyDashboardPage.svelte'
   import InventoryOverviewPage from './pharmacy/InventoryOverviewPage.svelte'
   import StockAdjustmentsPage from './pharmacy/StockAdjustmentsPage.svelte'
+  import ItemsPage from './pharmacy/ItemsPage.svelte'
   import SuppliersPage from './pharmacy/SuppliersPage.svelte'
   import PurchaseInvoicesPage from './pharmacy/PurchaseInvoicesPage.svelte'
   import CustomersPage from './pharmacy/CustomersPage.svelte'
@@ -54,7 +55,7 @@
   let authCard = false
   const exactRoutes = new Set([
     '/dashboard', '/dashboard/analytics', '/dashboard/ecommerce', '/dashboard/crm', '/app/email', '/app/calendar', '/app/blog', '/app/blog/create', '/app/contacts', '/app/chat', '/app/chat/voice-call', '/app/chat/video-call', '/app/ecommerce/products', '/app/ecommerce/products/create', '/app/ecommerce/checkout', '/app/notes', '/app/kanban', '/forms/layout', '/forms/validation', '/forms/editor', '/tables/simple', '/tables/data', '/tables/crud', '/charts/line', '/charts/area', '/charts/columns', '/charts/pie', '/charts/radar', '/charts/candlestick', '/pages/pricing', '/pages/account-settings', '/pages/gallery', '/pages/faq', '/pages/typography', '/features/rule-engine', '/features/query-builder', '/features/simulation', '/features/insights', '/features/workflow-builder', '/features/approval-engine', '/features/task-scheduler', '/features/notification-pipeline', '/auth/login', '/auth/register', '/auth/forgot-password', '/auth-card/login', '/auth-card/register', '/auth-card/forgot-password',
-    '/pharmacy', '/pharmacy/login', '/pharmacy/inventory', '/pharmacy/inventory/adjustments', '/pharmacy/purchasing/suppliers', '/pharmacy/purchasing/invoices', '/pharmacy/sales/customers', '/pharmacy/sales/invoices', '/pharmacy/settings/options', '/pharmacy/settings/users',
+    '/pharmacy', '/pharmacy/login', '/pharmacy/inventory', '/pharmacy/inventory/adjustments', '/pharmacy/inventory/items', '/pharmacy/purchasing/suppliers', '/pharmacy/purchasing/invoices', '/pharmacy/sales/customers', '/pharmacy/sales/invoices', '/pharmacy/settings/options', '/pharmacy/settings/users',
   ])
   $: dashboardVariant = path === '/dashboard/analytics' ? 'analytics' : path === '/dashboard/ecommerce' ? 'ecommerce' : path === '/dashboard/crm' ? 'crm' : 'overview'
   $: authKind = path.endsWith('register') ? 'register' : path.endsWith('forgot-password') ? 'forgot' : 'login'
@@ -79,6 +80,8 @@
   <AdminShell showCustomizer={false}><InventoryOverviewPage /></AdminShell>
 {:else if path === '/pharmacy/inventory/adjustments'}
   <AdminShell showCustomizer={false}><StockAdjustmentsPage /></AdminShell>
+{:else if path === '/pharmacy/inventory/items'}
+  <AdminShell showCustomizer={false}><ItemsPage /></AdminShell>
 {:else if path === '/pharmacy/purchasing/suppliers'}
   <AdminShell showCustomizer={false}><SuppliersPage /></AdminShell>
 {:else if path === '/pharmacy/purchasing/invoices'}
