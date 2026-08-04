@@ -26,6 +26,13 @@
   let query = ''
   let searchTimer: ReturnType<typeof setTimeout> | null = null
   let deactivatingId: number | null = null
+  let statusFilter: 'all' | 'active' | 'inactive' = 'all'
+
+  $: filteredRows = rows.filter((row) => {
+    if (statusFilter === 'active') return row.isActive
+    if (statusFilter === 'inactive') return !row.isActive
+    return true
+  })
 
   async function load(q?: string): Promise<void> {
     loading = true
@@ -251,15 +258,29 @@
   {/if}
 
   <div class="card">
-    <div class="relative max-w-md">
-      <Icon icon={Icons.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary-400" />
-      <input
-        bind:value={query}
-        on:input={onSearchInput}
-        class={`${inputClass} pl-10`}
-        placeholder="Search items by name or code…"
-        aria-label="Search items"
-      />
+    <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+      <div class="relative max-w-md w-full">
+        <Icon icon={Icons.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary-400" />
+        <input
+          bind:value={query}
+          on:input={onSearchInput}
+          class={`${inputClass} pl-10`}
+          placeholder="Search items by name or code…"
+          aria-label="Search items"
+        />
+      </div>
+
+      <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-surface-100 dark:bg-surface-800 shrink-0">
+        {#each [{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }] as option (option.value)}
+          <button
+            type="button"
+            class={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${statusFilter === option.value ? 'bg-white dark:bg-surface-900 text-theme-primary shadow-sm' : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white'}`}
+            on:click={() => (statusFilter = option.value as 'all' | 'active' | 'inactive')}
+          >
+            {option.label}
+          </button>
+        {/each}
+      </div>
     </div>
 
     <div class="mt-5 rounded-xl overflow-hidden border border-secondary-200 dark:border-secondary-700">
@@ -280,10 +301,10 @@
           <tbody class="divide-y divide-secondary-100 dark:divide-secondary-800">
             {#if loading}
               <tr><td colspan="7" class="py-10 px-4 text-center text-sm text-secondary-500">Loading items…</td></tr>
-            {:else if rows.length === 0}
-              <tr><td colspan="7" class="py-10 px-4 text-center text-sm text-secondary-500">No items found.</td></tr>
+            {:else if filteredRows.length === 0}
+              <tr><td colspan="7" class="py-10 px-4 text-center text-sm text-secondary-500">{rows.length === 0 ? 'No items found.' : 'No items match this filter.'}</td></tr>
             {:else}
-              {#each rows as row (row.itemId)}
+              {#each filteredRows as row (row.itemId)}
                 <tr
                   class="hover:bg-surface-50 dark:hover:bg-surface-900/20 transition-colors cursor-pointer"
                   on:click={() => openDetail(row)}

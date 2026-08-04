@@ -100,6 +100,28 @@
   let loadError = ''
   let rows: StockTakeRow[] = []
   let rowActionLoading: Record<number, 'sheet' | 'close' | undefined> = {}
+  let searchQuery = ''
+  let statusFilter: 'all' | StockTakeRow['status'] = 'all'
+  const statusFilterOptions: Array<{ value: 'all' | StockTakeRow['status']; label: string }> = [
+    { value: 'all', label: 'All' },
+    { value: 'draft', label: 'Draft' },
+    { value: 'counting', label: 'Counting' },
+    { value: 'reviewed', label: 'Reviewed' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'cancelled', label: 'Cancelled' },
+  ]
+
+  // Client-side filters over already-fetched rows -- search matches doc number or scope (item
+  // name / "All items"), same "no new API call" convention as ItemsPage/SuppliersPage's status
+  // filters. Referencing `itemMap` directly (rather than via the `scopeLabel` helper) keeps it a
+  // tracked dependency of this reactive statement.
+  $: filteredRows = rows.filter((row) => {
+    if (statusFilter !== 'all' && row.status !== statusFilter) return false
+    const needle = searchQuery.trim().toLowerCase()
+    if (!needle) return true
+    const scopeText = row.scopeItemId === null ? 'all items' : (itemMap.get(row.scopeItemId)?.name ?? '').toLowerCase()
+    return row.docNumber.toLowerCase().includes(needle) || scopeText.includes(needle)
+  })
 
   async function loadList(): Promise<void> {
     loading = true
@@ -459,6 +481,30 @@
     </div>
   {/if}
 
+  <div class="card rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+    <div class="relative max-w-md w-full">
+      <Icon icon={Icons.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary-400" />
+      <input
+        bind:value={searchQuery}
+        class={`${inputClass} pl-10`}
+        placeholder="Search by doc number or scope…"
+        aria-label="Search stock takes"
+      />
+    </div>
+
+    <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-surface-100 dark:bg-surface-800 overflow-x-auto shrink-0">
+      {#each statusFilterOptions as option (option.value)}
+        <button
+          type="button"
+          class={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${statusFilter === option.value ? 'bg-white dark:bg-surface-900 text-theme-primary shadow-sm' : 'text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white'}`}
+          on:click={() => (statusFilter = option.value)}
+        >
+          {option.label}
+        </button>
+      {/each}
+    </div>
+  </div>
+
   <div class="card rounded-xl p-0 overflow-hidden">
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Stock takes table">
@@ -475,10 +521,10 @@
         <tbody class="divide-y divide-surface-200 dark:divide-surface-700">
           {#if loading}
             <tr><td colspan="5" class="py-10 px-4 text-center text-sm text-secondary-500">Loading stock takes…</td></tr>
-          {:else if rows.length === 0}
-            <tr><td colspan="5" class="py-10 px-4 text-center text-sm text-secondary-500">No stock takes yet.</td></tr>
+          {:else if filteredRows.length === 0}
+            <tr><td colspan="5" class="py-10 px-4 text-center text-sm text-secondary-500">{rows.length === 0 ? 'No stock takes yet.' : 'No stock takes match your search or filter.'}</td></tr>
           {:else}
-            {#each rows as row (row.stockTakeId)}
+            {#each filteredRows as row (row.stockTakeId)}
               {@const showSheet = canGenerateSheet(row)}
               {@const showClose = canCloseDirect(row)}
               <tr class="hover:bg-surface-50 dark:hover:bg-surface-900/20 transition-colors">

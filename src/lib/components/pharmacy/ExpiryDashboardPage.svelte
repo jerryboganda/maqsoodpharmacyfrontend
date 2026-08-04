@@ -3,7 +3,8 @@
   import Icon from '../common/Icon.svelte'
   import { Icons } from '../../icons'
   import Badge from './shared/Badge.svelte'
-  import { inventoryApi, ApiNetworkError, ApiError, formatQty, formatDate } from '../../api'
+  import { toast } from '../../stores/toast'
+  import { inventoryApi, api, ApiNetworkError, ApiError, formatQty, formatDate } from '../../api'
   import type { ExpiryDashboardRow } from '../../api'
 
   const headClass = 'text-left text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400'
@@ -40,6 +41,46 @@
     if (row.daysToExpiry < 0) return `Expired ${Math.abs(row.daysToExpiry)}d ago`
     if (row.daysToExpiry === 0) return 'Expires today'
     return `${row.daysToExpiry}d left`
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Quarantine hold / release -- same two real endpoints/pattern as InventoryOverviewPage's stock
+  // lots tab (holdStockLot/releaseStockLot are separate calls, not a unified toggle).
+  // ---------------------------------------------------------------------------------------------
+  let lotActionLoading: Record<number, 'hold' | 'release' | undefined> = {}
+
+  async function holdLot(row: ExpiryDashboardRow): Promise<void> {
+    lotActionLoading = { ...lotActionLoading, [row.stockLotId]: 'hold' }
+    try {
+      await inventoryApi.holdStockLot(row.stockLotId, {}, api.newIdempotencyKey())
+      toast.success('Stock lot put on hold.')
+      await load()
+    } catch (err) {
+      if (err instanceof ApiError) toast.error(err.detail)
+      else if (err instanceof ApiNetworkError) toast.error(err.message)
+      else toast.error('Could not hold the stock lot.')
+    } finally {
+      const next = { ...lotActionLoading }
+      delete next[row.stockLotId]
+      lotActionLoading = next
+    }
+  }
+
+  async function releaseLot(row: ExpiryDashboardRow): Promise<void> {
+    lotActionLoading = { ...lotActionLoading, [row.stockLotId]: 'release' }
+    try {
+      await inventoryApi.releaseStockLot(row.stockLotId, {}, api.newIdempotencyKey())
+      toast.success('Stock lot released.')
+      await load()
+    } catch (err) {
+      if (err instanceof ApiError) toast.error(err.detail)
+      else if (err instanceof ApiNetworkError) toast.error(err.message)
+      else toast.error('Could not release the stock lot.')
+    } finally {
+      const next = { ...lotActionLoading }
+      delete next[row.stockLotId]
+      lotActionLoading = next
+    }
   }
 
   async function load(): Promise<void> {
@@ -122,6 +163,7 @@
                       <th class={`${headClass} py-3 px-4`}>Days to expiry</th>
                       <th class={`${headClass} py-3 px-4`}>Qty on hand</th>
                       <th class={`${headClass} py-3 px-4`}>Lot status</th>
+                      <th class={`${headClass} py-3 px-4 text-right`}>Actions</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-surface-200 dark:divide-surface-700">
@@ -137,6 +179,31 @@
                         </td>
                         <td class={cellClass}>{formatQty(row.qtyOnHand)}</td>
                         <td class={cellClass}><Badge tone={lotStatusTone(row.lotStatus)}>{row.lotStatus}</Badge></td>
+                        <td class={`${cellClass} text-right`}>
+                          {#if row.lotStatus === 'available'}
+                            <button
+                              type="button"
+                              class="px-3 py-1.5 rounded-lg text-xs font-medium bg-warning-50 dark:bg-warning-950 text-warning-700 dark:text-warning-300 hover:bg-warning-100 dark:hover:bg-warning-900 disabled:opacity-50"
+                              disabled={lotActionLoading[row.stockLotId] !== undefined}
+                              on:click={() => holdLot(row)}
+                            >
+                              <Icon icon={Icons.lock} className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
+                              {lotActionLoading[row.stockLotId] === 'hold' ? 'Holding…' : 'Hold'}
+                            </button>
+                          {:else if row.lotStatus === 'quarantined'}
+                            <button
+                              type="button"
+                              class="px-3 py-1.5 rounded-lg text-xs font-medium bg-success-50 dark:bg-success-950 text-success-700 dark:text-success-300 hover:bg-success-100 dark:hover:bg-success-900 disabled:opacity-50"
+                              disabled={lotActionLoading[row.stockLotId] !== undefined}
+                              on:click={() => releaseLot(row)}
+                            >
+                              <Icon icon={Icons.unlock} className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
+                              {lotActionLoading[row.stockLotId] === 'release' ? 'Releasing…' : 'Release'}
+                            </button>
+                          {:else}
+                            <span class="text-xs text-secondary-400 dark:text-secondary-500">—</span>
+                          {/if}
+                        </td>
                       </tr>
                     {/each}
                   </tbody>
