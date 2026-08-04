@@ -3,11 +3,15 @@ import type {
   CreateCustomerInput,
   CreateSaleInvoiceInput,
   CreateSaleInvoiceResult,
+  CreateSaleReturnInput,
+  CreateSaleReturnResult,
   CustomerLedgerResult,
   CustomerListResult,
   CustomerRow,
   GetSaleInvoiceResult,
+  GetSaleReturnResult,
   SaleInvoiceListResult,
+  SaleReturnListResult,
   UpdateCustomerInput,
 } from "./types";
 
@@ -36,4 +40,20 @@ export const salesApi = {
   getSaleInvoice: (id: number) => api.get<GetSaleInvoiceResult>(`/sale-invoices/${id}`),
   createSaleInvoice: (input: CreateSaleInvoiceInput, idempotencyKey?: string) =>
     api.post<CreateSaleInvoiceResult>("/sale-invoices", input, idempotencyKey),
+
+  // ---- Sale returns (create+post in one transaction, mirrors purchase returns) ----------------
+  listSaleReturns: (
+    params: {
+      customerId?: number;
+      saleInvoiceId?: number;
+      status?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      limit?: number;
+      offset?: number;
+    } = {},
+  ) => api.get<SaleReturnListResult>("/sale-returns", params),
+  getSaleReturn: (id: number) => api.get<GetSaleReturnResult>(`/sale-returns/${id}`),
+  createSaleReturn: (input: CreateSaleReturnInput, idempotencyKey?: string) =>
+    api.post<CreateSaleReturnResult>("/sale-returns", input, idempotencyKey),
 };

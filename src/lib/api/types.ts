@@ -452,6 +452,161 @@ export interface CreatePurchaseInvoiceResult {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Purchasing -- purchase orders (commitment/intent documents; never touch stock or the GL, see
+// purchase-order.dto.ts's header comment in the sibling `rebuild` repo). Two independent status
+// axes on every row: `status` (docColumns() pack -- draft/confirmed/posted/cancelled/reversed;
+// approve moves draft -> confirmed, the schema's real stand-in for "approved") and `orderStatus`
+// (the PO-specific receiving-progress axis -- open/partial/received/closed/cancelled).
+// ---------------------------------------------------------------------------------------------
+export interface PurchaseOrderLineInput {
+  itemId: number;
+  /** Loose/base units committed to -- no pack/bonus breakdown (purchase-invoice-only concept). */
+  qtyOrdered: string;
+  /** Per PACK, matching purchase_order_line.unit_price. */
+  unitPrice: string;
+}
+
+export interface CreatePurchaseOrderInput {
+  supplierId: number;
+  documentDate: string;
+  expectedDate?: string;
+  lines: PurchaseOrderLineInput[];
+  notes?: string;
+}
+
+export interface PurchaseOrderRow {
+  purchaseOrderId: number;
+  docNumber: string;
+  status: "draft" | "confirmed" | "posted" | "cancelled" | "reversed";
+  documentDate: string;
+  postingDate: string;
+  supplierId: number;
+  expectedDate: string | null;
+  orderStatus: "open" | "partial" | "received" | "closed" | "cancelled";
+  totalAmount: string;
+  notes: string | null;
+  createdBy: number | null;
+  cancelledAt: string | null;
+  cancelledBy: number | null;
+  cancelReasonId: number | null;
+}
+
+export interface PurchaseOrderLineRow {
+  purchaseOrderLineId: number;
+  lineNo: number;
+  itemId: number;
+  qtyOrdered: string;
+  qtyReceived: string;
+  qtyOutstanding: string;
+  unitPrice: string | null;
+  expectedDate: string | null;
+}
+
+/** Shared shape for GET /purchase-orders/:id and the POST create/approve/close/cancel
+ *  responses -- every mutating action on this service returns `this.getById(...)` (see
+ *  purchase-order.service.ts), so one result type covers all of them. */
+export interface GetPurchaseOrderResult {
+  purchaseOrder: PurchaseOrderRow;
+  lines: PurchaseOrderLineRow[];
+}
+
+// ---------------------------------------------------------------------------------------------
+// Purchasing -- purchase returns (reverse-direction sibling of a purchase invoice; posts stock
+// OUT of a named lot and reverses the invoice's own AP/Inventory GL legs -- see
+// purchase-return.service.ts's header comment in the sibling `rebuild` repo). Create+post happen
+// in one transaction, same as a purchase invoice -- no separate draft/approve/post workflow.
+// ---------------------------------------------------------------------------------------------
+export interface PurchaseReturnLineInput {
+  itemId: number;
+  /** Which stock lot the returned goods come out of -- not a fresh lot, must match a line
+   *  actually received on `purchaseInvoiceId`. */
+  stockLotId: number;
+  returnQty: string;
+  /** Defaults server-side to the original invoice line's own unit_cost_in when omitted. */
+  unitCost?: string;
+}
+
+export interface CreatePurchaseReturnInput {
+  supplierId: number;
+  /** The original goods-receipt document being returned against; must belong to `supplierId`
+   *  and be posted. */
+  purchaseInvoiceId: number;
+  /** No return category is marked default in the seed this increment, so omitting this is
+   *  expected to 422 -- the form always sends an explicit isReturn-flagged category. */
+  purchaseCategoryId?: number;
+  /** Soft ref -> option_item list `purchase_return_reason`; not validated server-side this
+   *  increment, and there is no seeded lookup for it yet, so this client never sends it. */
+  reasonId?: number;
+  documentDate: string;
+  lines: PurchaseReturnLineInput[];
+  notes?: string;
+}
+
+export interface PurchaseReturnRow {
+  purchaseReturnId: number;
+  docNumber: string;
+  status: "draft" | "confirmed" | "posted" | "cancelled" | "reversed";
+  documentDate: string;
+  postingDate: string;
+  supplierId: number;
+  purchaseInvoiceId: number | null;
+  purchaseCategoryId: number;
+  reasonId: number | null;
+  grossAmount: string;
+  lineDiscountAmount: string;
+  netAmount: string;
+  salesTaxAmount: string;
+  returnTotal: string;
+  totalQty: string;
+  notes: string | null;
+  journalEntryId: number | null;
+}
+
+export interface PurchaseReturnLineRow {
+  purchaseReturnLineId: number;
+  purchaseReturnId: number;
+  purchaseInvoiceLineId: number | null;
+  lineNo: number;
+  itemId: number;
+  stockLotId: number;
+  qtyPack: string;
+  qtyLoose: string;
+  qtyBonus: string;
+  packUnitsAtTxn: number;
+  qtyBase: string;
+  unitPurchasePrice: string;
+  netRate: string;
+  unitCostIn: string;
+  discountPercent: string;
+  lineGrossAmount: string;
+  lineDiscountAmount: string;
+  lineNetAmount: string;
+  avgCostBefore: string;
+  avgCostAfter: string;
+  batchNoCaptured: string | null;
+  expiryDateCaptured: string | null;
+}
+
+/** Shared shape for GET /purchase-returns/:id and the POST create response (createAndPost
+ *  returns { purchaseReturn, lines, journalEntryId } -- one extra field over getById). */
+export interface GetPurchaseReturnResult {
+  purchaseReturn: PurchaseReturnRow;
+  lines: PurchaseReturnLineRow[];
+}
+
+export interface CreatePurchaseReturnResult {
+  purchaseReturn: PurchaseReturnRow;
+  lines: PurchaseReturnLineRow[];
+  journalEntryId: number;
+}
+
+export interface PurchaseReturnListResult {
+  purchaseReturns: PurchaseReturnRow[];
+  offset: number;
+  limit: number;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Sales
 // ---------------------------------------------------------------------------------------------
 export interface CustomerRow {
@@ -614,6 +769,68 @@ export interface GetSaleInvoiceResult {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Sale returns -- mirrors sale-return.dto.ts (rebuild/apps/api). Create+post in one transaction,
+// like a sale invoice; no per-line stockLotId/unitSalePrice on input -- the backend resolves
+// which of the referenced invoice's own lines/lots each returnQty slices from, and freezes cost
+// at the original line's own unit_cost (see sale-returns.service.ts's header comment).
+// ---------------------------------------------------------------------------------------------
+export interface SaleReturnLineInput {
+  itemId: number;
+  returnQty: string;
+}
+
+export interface CreateSaleReturnInput {
+  customerId: number;
+  saleInvoiceId: number;
+  documentDate: string;
+  lines: SaleReturnLineInput[];
+  notes?: string;
+}
+
+export interface SaleReturnRow {
+  saleReturnId: number;
+  docNumber: string;
+  status: string;
+  documentDate: string;
+  saleInvoiceId: number | null;
+  customerId: number;
+  grossAmount: string;
+  netAmount: string;
+  salesTaxAmount: string;
+  returnTotal: string;
+  cogsAmount: string;
+  journalEntryId: number | null;
+}
+
+export interface SaleReturnLineRow {
+  saleReturnLineId: number;
+  lineNo: number;
+  itemId: number;
+  stockLotId: number;
+  saleInvoiceLineId: number | null;
+  costBasis: string;
+  qtyBase: string;
+  unitSalePrice: string;
+  lineGrossAmount: string;
+  lineNetAmount: string;
+  unitCost: string;
+  lineCostAmount: string;
+  lineMarginAmount: string;
+  expiryAtSale: string | null;
+}
+
+export interface CreateSaleReturnResult {
+  saleReturn: SaleReturnRow;
+  lines: SaleReturnLineRow[];
+  journalEntryId: number;
+}
+
+export interface GetSaleReturnResult {
+  saleReturn: SaleReturnRow;
+  lines: SaleReturnLineRow[];
+}
+
+// ---------------------------------------------------------------------------------------------
 // List envelopes -- each list endpoint's actual (slightly inconsistent across modules) shape.
 // ---------------------------------------------------------------------------------------------
 export interface StockListResult {
@@ -642,6 +859,11 @@ export interface PurchaseInvoiceListResult {
   offset: number;
   limit: number;
 }
+export interface PurchaseOrderListResult {
+  purchaseOrders: PurchaseOrderRow[];
+  offset: number;
+  limit: number;
+}
 export interface CustomerListResult {
   customers: CustomerRow[];
   limit: number;
@@ -649,6 +871,11 @@ export interface CustomerListResult {
 }
 export interface SaleInvoiceListResult {
   saleInvoices: SaleInvoiceRow[];
+  limit: number;
+  offset: number;
+}
+export interface SaleReturnListResult {
+  saleReturns: SaleReturnRow[];
   limit: number;
   offset: number;
 }

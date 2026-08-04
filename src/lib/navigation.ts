@@ -8,8 +8,8 @@ export const navGroups: NavGroup[] = [
   { title: 'Pharmacy', items: [
     { path: '/pharmacy', label: 'Pharmacy Dashboard', icon: Icons.dashboard },
     { path: '/pharmacy/inventory', label: 'Inventory', icon: Icons.package, children: [{ path: '/pharmacy/inventory', label: 'Stock & Lots' }, { path: '/pharmacy/inventory/adjustments', label: 'Adjustments' }, { path: '/pharmacy/inventory/items', label: 'Items' }] },
-    { path: '/pharmacy/purchasing/suppliers', label: 'Purchasing', icon: Icons.truck, children: [{ path: '/pharmacy/purchasing/suppliers', label: 'Suppliers' }, { path: '/pharmacy/purchasing/invoices', label: 'Purchase Invoices' }] },
-    { path: '/pharmacy/sales/customers', label: 'Sales', icon: Icons.database, children: [{ path: '/pharmacy/sales/customers', label: 'Customers' }, { path: '/pharmacy/sales/invoices', label: 'Sale Invoices' }] },
+    { path: '/pharmacy/purchasing/suppliers', label: 'Purchasing', icon: Icons.truck, children: [{ path: '/pharmacy/purchasing/suppliers', label: 'Suppliers' }, { path: '/pharmacy/purchasing/invoices', label: 'Purchase Invoices' }, { path: '/pharmacy/purchasing/orders', label: 'Purchase Orders' }, { path: '/pharmacy/purchasing/returns', label: 'Purchase Returns' }] },
+    { path: '/pharmacy/sales/customers', label: 'Sales', icon: Icons.database, children: [{ path: '/pharmacy/sales/customers', label: 'Customers' }, { path: '/pharmacy/sales/invoices', label: 'Sale Invoices' }, { path: '/pharmacy/sales/returns', label: 'Sale Returns' }] },
     { path: '/pharmacy/settings/options', label: 'Settings', icon: Icons.settings, children: [{ path: '/pharmacy/settings/options', label: 'Options' }, { path: '/pharmacy/settings/users', label: 'Users & Roles' }] },
   ] },
   { title: 'Dashboards', items: [
