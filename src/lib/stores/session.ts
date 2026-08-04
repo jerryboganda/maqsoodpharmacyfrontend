@@ -39,6 +39,25 @@ function readStoredToken(): string | null {
   }
 }
 
+// EAGER, SYNCHRONOUS restore at module-evaluation time -- this is the actual fix for a real,
+// reproduced-live bug: a one-time 401 on a hard reload/deep-link into an authenticated pharmacy
+// route. `restoreSession()` (below) was already being called from the root `+layout.svelte`'s
+// `onMount`, and its very first line (`setAuthToken(token)`) already ran before its own `await
+// identityApi.me()` -- but Svelte does NOT guarantee a parent layout's `onMount` fires before a
+// nested page component's own `onMount`. In practice a page's own `onMount` (e.g. a dashboard's
+// first data fetch) frequently ran FIRST, before the root layout's `onMount` had called
+// `setAuthToken()` at all -- so that page's first request went out with no bearer token and
+// 401'd once, even though the session recovered a moment later. Module evaluation, unlike
+// `onMount`, is guaranteed to complete for every module in the import graph (this one included,
+// via `+layout.svelte`'s own `import ... from '$lib/stores/session'`) before ANY component in the
+// tree mounts -- so attaching the token here, synchronously, at import time, closes the race
+// entirely. The async half (validating the token against the server via `identityApi.me()`, and
+// clearing it if the server rejects it) still only needs to happen once and stays in
+// `restoreSession()`'s own `onMount` call -- redundantly calling `setAuthToken()` again there is
+// harmless (same value, or `null` if this eager read found nothing).
+const eagerToken = readStoredToken();
+if (eagerToken) setAuthToken(eagerToken);
+
 function storeToken(token: string): void {
   setAuthToken(token);
   if (!browser) return;
