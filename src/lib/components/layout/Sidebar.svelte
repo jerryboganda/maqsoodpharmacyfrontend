@@ -120,7 +120,7 @@
   </nav>
 
   <div class="p-3 border-t border-surface-200 dark:border-surface-800">
-    <a href="/auth/login" on:click={onClose} class={'flex items-center gap-3 rounded-xl text-sm font-medium text-secondary-600 dark:text-secondary-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors ' + (collapsed ? 'justify-center p-3' : 'px-4 py-2.5')} title={collapsed ? translate('common.logout') : undefined}>
+    <a href="/pharmacy/login" on:click={onClose} class={'flex items-center gap-3 rounded-xl text-sm font-medium text-secondary-600 dark:text-secondary-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors ' + (collapsed ? 'justify-center p-3' : 'px-4 py-2.5')} title={collapsed ? translate('common.logout') : undefined}>
       <Icon icon={Icons.logout} className="w-5 h-5 flex-shrink-0" />
       {#if !collapsed}<span>{translate('common.logout')}</span>{/if}
     </a>

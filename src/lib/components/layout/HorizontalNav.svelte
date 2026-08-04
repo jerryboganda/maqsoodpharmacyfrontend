@@ -3,7 +3,7 @@
   import { page } from '$app/stores'
   import Icon from '../common/Icon.svelte'
   import { Icons } from '../../icons'
-  import { navGroups, type NavGroup, type NavItem } from '../../navigation'
+  import { pharmacyNavGroups, type NavGroup, type NavItem } from '../../navigation'
 
   let pathname = ''
   let openGroup: string | null = null
@@ -12,7 +12,7 @@
 
   $: pathname = String($page.url.pathname)
 
-  const groups = navGroups.filter((group) => ['Dashboards', 'Apps', 'Pages', 'Forms', 'Tables', 'Charts'].includes(group.title))
+  const groups = pharmacyNavGroups
 
   function isActive(path: string): boolean {
     if (path === '/dashboard') return pathname === path

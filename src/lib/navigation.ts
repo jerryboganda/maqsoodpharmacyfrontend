@@ -13,6 +13,9 @@ export const pharmacyNavGroups: NavGroup[] = [
     { path: '/pharmacy/accounting/chart-of-accounts', label: 'Accounting', icon: Icons.wallet, children: [{ path: '/pharmacy/accounting/chart-of-accounts', label: 'Chart of Accounts' }, { path: '/pharmacy/accounting/vouchers', label: 'Journal Entries' }, { path: '/pharmacy/accounting/cash-bank', label: 'Cash & Bank' }] },
     { path: '/pharmacy/payments/transactions', label: 'Payments', icon: Icons.creditCard, children: [{ path: '/pharmacy/payments/transactions', label: 'Payments' }, { path: '/pharmacy/payments/methods', label: 'Payment Methods' }] },
     { path: '/pharmacy/expenses/transactions', label: 'Expenses', icon: Icons.currencyDollar, children: [{ path: '/pharmacy/expenses/transactions', label: 'Expenses' }, { path: '/pharmacy/expenses/categories', label: 'Expense Categories' }] },
+    { path: '/pharmacy/reports', label: 'Reports', icon: Icons.chartBar },
+    { path: '/pharmacy/audit', label: 'Audit Log', icon: Icons.checklist },
+    { path: '/pharmacy/notifications', label: 'Notifications', icon: Icons.bell },
     { path: '/pharmacy/settings/options', label: 'Settings', icon: Icons.settings, children: [{ path: '/pharmacy/settings/options', label: 'Options' }, { path: '/pharmacy/settings/users', label: 'Users & Roles' }] },
   ] }
 ]
