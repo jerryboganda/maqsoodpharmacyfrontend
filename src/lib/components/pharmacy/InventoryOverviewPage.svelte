@@ -3,10 +3,13 @@
   import Icon from '../common/Icon.svelte'
   import { Icons } from '../../icons'
   import Badge from './shared/Badge.svelte'
-  import { catalogApi, inventoryApi, ApiNetworkError, ApiError, formatMoney, formatQty, formatDate } from '../../api'
-  import type { StockRow, StockLotRow } from '../../api'
+  import Modal from './shared/Modal.svelte'
+  import { toast } from '../../stores/toast'
+  import { catalogApi, inventoryApi, api, ApiNetworkError, ApiError, formatMoney, formatQty, formatDate, formatDateTime } from '../../api'
+  import type { StockRow, StockLotRow, StockLotDetail } from '../../api'
 
   const inputClass = 'w-full px-4 py-2.5 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-secondary-900 dark:text-white placeholder-secondary-400 focus:outline-none focus:ring-2 focus:ring-theme-primary/20 focus:border-theme-primary transition-all'
+  const labelClass = 'block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1'
   const headClass = 'text-left text-xs font-semibold uppercase tracking-wide text-secondary-500 dark:text-secondary-400'
   const cellClass = 'py-3 px-4 text-sm text-secondary-800 dark:text-secondary-200'
   const pageSize = 15
@@ -50,6 +53,71 @@
 
   function itemName(itemId: number): string {
     return itemNameById.get(itemId) ?? `Item #${itemId}`
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Stock lot actions -- hold / release / view
+  // ---------------------------------------------------------------------------------------------
+  let lotActionLoading: Record<number, 'hold' | 'release' | undefined> = {}
+
+  async function holdLot(row: StockLotRow): Promise<void> {
+    lotActionLoading = { ...lotActionLoading, [row.stockLotId]: 'hold' }
+    try {
+      await inventoryApi.holdStockLot(row.stockLotId, {}, api.newIdempotencyKey())
+      toast.success('Stock lot put on hold.')
+      await load()
+    } catch (err) {
+      if (err instanceof ApiError) toast.error(err.detail)
+      else if (err instanceof ApiNetworkError) toast.error(err.message)
+      else toast.error('Could not hold the stock lot.')
+    } finally {
+      const next = { ...lotActionLoading }
+      delete next[row.stockLotId]
+      lotActionLoading = next
+    }
+  }
+
+  async function releaseLot(row: StockLotRow): Promise<void> {
+    lotActionLoading = { ...lotActionLoading, [row.stockLotId]: 'release' }
+    try {
+      await inventoryApi.releaseStockLot(row.stockLotId, {}, api.newIdempotencyKey())
+      toast.success('Stock lot released.')
+      await load()
+    } catch (err) {
+      if (err instanceof ApiError) toast.error(err.detail)
+      else if (err instanceof ApiNetworkError) toast.error(err.message)
+      else toast.error('Could not release the stock lot.')
+    } finally {
+      const next = { ...lotActionLoading }
+      delete next[row.stockLotId]
+      lotActionLoading = next
+    }
+  }
+
+  let viewLotModalOpen = false
+  let viewLotLoading = false
+  let viewLotError = ''
+  let viewLotTarget: StockLotDetail | null = null
+
+  async function openViewLot(row: StockLotRow): Promise<void> {
+    viewLotTarget = null
+    viewLotError = ''
+    viewLotModalOpen = true
+    viewLotLoading = true
+    try {
+      viewLotTarget = await inventoryApi.getStockLot(row.stockLotId)
+    } catch (err) {
+      if (err instanceof ApiError) viewLotError = err.detail
+      else if (err instanceof ApiNetworkError) viewLotError = err.message
+      else viewLotError = 'Could not load the stock lot.'
+    } finally {
+      viewLotLoading = false
+    }
+  }
+
+  function closeViewLot(): void {
+    viewLotModalOpen = false
+    viewLotTarget = null
   }
 
   async function load(): Promise<void> {
@@ -201,11 +269,12 @@
                 <th class={`${headClass} py-3 px-4`}>Qty on hand</th>
                 <th class={`${headClass} py-3 px-4`}>Status</th>
                 <th class={`${headClass} py-3 px-4`}>Priority</th>
+                <th class={`${headClass} py-3 px-4 text-right`}>Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-surface-200 dark:divide-surface-700">
               {#if loading}
-                <tr><td colspan="6" class="py-10 px-4 text-center text-sm text-secondary-500">Loading…</td></tr>
+                <tr><td colspan="7" class="py-10 px-4 text-center text-sm text-secondary-500">Loading…</td></tr>
               {:else}
                 {#each pagedLotRows as row (row.stockLotId)}
                   {@const status = lotStatusMeta(row.lotStatus)}
@@ -218,10 +287,43 @@
                     <td class={cellClass}>{formatQty(row.qtyOnHand)}</td>
                     <td class={cellClass}><Badge tone={status.tone}>{status.label}</Badge></td>
                     <td class={cellClass}>{row.priority}</td>
+                    <td class={`${cellClass} text-right`}>
+                      <div class="inline-flex items-center gap-2">
+                        <button
+                          type="button"
+                          class="px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-100 dark:bg-surface-800 text-secondary-700 dark:text-secondary-300 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
+                          on:click={() => openViewLot(row)}
+                        >
+                          <Icon icon={Icons.eye} className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
+                          View
+                        </button>
+                        {#if row.lotStatus === 'available'}
+                          <button
+                            type="button"
+                            class="px-3 py-1.5 rounded-lg text-xs font-medium bg-warning-50 dark:bg-warning-950 text-warning-700 dark:text-warning-300 hover:bg-warning-100 dark:hover:bg-warning-900 disabled:opacity-50"
+                            disabled={lotActionLoading[row.stockLotId] !== undefined}
+                            on:click={() => holdLot(row)}
+                          >
+                            <Icon icon={Icons.lock} className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
+                            {lotActionLoading[row.stockLotId] === 'hold' ? 'Holding…' : 'Hold'}
+                          </button>
+                        {:else if row.lotStatus === 'quarantined'}
+                          <button
+                            type="button"
+                            class="px-3 py-1.5 rounded-lg text-xs font-medium bg-success-50 dark:bg-success-950 text-success-700 dark:text-success-300 hover:bg-success-100 dark:hover:bg-success-900 disabled:opacity-50"
+                            disabled={lotActionLoading[row.stockLotId] !== undefined}
+                            on:click={() => releaseLot(row)}
+                          >
+                            <Icon icon={Icons.unlock} className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
+                            {lotActionLoading[row.stockLotId] === 'release' ? 'Releasing…' : 'Release'}
+                          </button>
+                        {/if}
+                      </div>
+                    </td>
                   </tr>
                 {/each}
                 {#if !pagedLotRows.length}
-                  <tr><td colspan="6" class="py-10 px-4 text-center text-sm text-secondary-500">No stock lots found.</td></tr>
+                  <tr><td colspan="7" class="py-10 px-4 text-center text-sm text-secondary-500">No stock lots found.</td></tr>
                 {/if}
               {/if}
             </tbody>
@@ -254,3 +356,120 @@
     </div>
   {/if}
 </div>
+
+<Modal open={viewLotModalOpen} title={viewLotTarget ? `${itemName(viewLotTarget.itemId)} — lot detail` : 'Stock lot'} widthClass="max-w-3xl" onClose={closeViewLot}>
+  {#if viewLotError}
+    <div class="card border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950 text-danger-700 dark:text-danger-300 p-4 text-sm mb-4">
+      {viewLotError}
+    </div>
+  {/if}
+
+  {#if viewLotLoading && !viewLotTarget}
+    <p class="py-8 text-center text-sm text-secondary-500">Loading stock lot…</p>
+  {:else if viewLotTarget}
+    {@const status = lotStatusMeta(viewLotTarget.lotStatus)}
+    <div class="space-y-5">
+      <div class="flex items-center gap-2">
+        <Badge tone={status.tone}>{status.label}</Badge>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+        <div>
+          <span class={labelClass}>Batch no</span>
+          <p class="text-sm text-secondary-800 dark:text-secondary-200">{viewLotTarget.batchNo ?? '—'}</p>
+        </div>
+        <div>
+          <span class={labelClass}>Qty on hand</span>
+          <p class="text-sm text-secondary-800 dark:text-secondary-200">{formatQty(viewLotTarget.qtyOnHand)}</p>
+        </div>
+        <div>
+          <span class={labelClass}>Expiry date</span>
+          <p class="text-sm text-secondary-800 dark:text-secondary-200">{viewLotTarget.expiryDate ? formatDate(viewLotTarget.expiryDate) : '—'}</p>
+        </div>
+        <div>
+          <span class={labelClass}>Expiry status</span>
+          <p class="text-sm text-secondary-800 dark:text-secondary-200 capitalize">{viewLotTarget.expiryStatus}</p>
+        </div>
+        <div>
+          <span class={labelClass}>Manufactured on</span>
+          <p class="text-sm text-secondary-800 dark:text-secondary-200">{viewLotTarget.manufacturedOn ? formatDate(viewLotTarget.manufacturedOn) : '—'}</p>
+        </div>
+        <div>
+          <span class={labelClass}>Received on</span>
+          <p class="text-sm text-secondary-800 dark:text-secondary-200">{viewLotTarget.receivedOn ? formatDate(viewLotTarget.receivedOn) : '—'}</p>
+        </div>
+        <div>
+          <span class={labelClass}>Receipt unit cost</span>
+          <p class="text-sm text-secondary-800 dark:text-secondary-200">{formatMoney(viewLotTarget.receiptUnitCost)}</p>
+        </div>
+        <div>
+          <span class={labelClass}>Priority (FEFO rank)</span>
+          <p class="text-sm text-secondary-800 dark:text-secondary-200">{viewLotTarget.priority}</p>
+        </div>
+        <div>
+          <span class={labelClass}>Supplier</span>
+          <p class="text-sm text-secondary-800 dark:text-secondary-200">{viewLotTarget.supplierId !== null ? `Supplier #${viewLotTarget.supplierId}` : '—'}</p>
+        </div>
+        <div>
+          <span class={labelClass}>Hold reason</span>
+          <p class="text-sm text-secondary-800 dark:text-secondary-200">{viewLotTarget.holdReasonId !== null ? `#${viewLotTarget.holdReasonId}` : '—'}</p>
+        </div>
+        <div>
+          <span class={labelClass}>Source document</span>
+          <p class="text-sm text-secondary-800 dark:text-secondary-200">
+            {viewLotTarget.sourceDocumentId !== null ? `Doc #${viewLotTarget.sourceDocumentId} (type #${viewLotTarget.sourceDocumentTypeId})` : '—'}
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="text-sm font-semibold text-secondary-800 dark:text-secondary-200 mb-2">Recent movements</h3>
+        <div class="rounded-xl overflow-hidden border border-surface-200 dark:border-surface-700">
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+          <div class="overflow-x-auto max-h-72 overflow-y-auto" tabindex="0" role="region" aria-label="Stock lot movements table">
+            <table class="w-full">
+              <thead class="bg-surface-50 dark:bg-surface-900/30 sticky top-0">
+                <tr>
+                  <th class={`${headClass} py-2.5 px-4`}>Date</th>
+                  <th class={`${headClass} py-2.5 px-4`}>Direction</th>
+                  <th class={`${headClass} py-2.5 px-4 text-right`}>Qty Δ</th>
+                  <th class={`${headClass} py-2.5 px-4 text-right`}>Qty after</th>
+                  <th class={`${headClass} py-2.5 px-4 text-right`}>Unit cost</th>
+                  <th class={`${headClass} py-2.5 px-4 text-right`}>Cost amount</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-surface-200 dark:divide-surface-700">
+                {#if viewLotTarget.movements.length === 0}
+                  <tr><td colspan="6" class="py-8 px-4 text-center text-sm text-secondary-500">No movements recorded for this lot yet.</td></tr>
+                {:else}
+                  {#each viewLotTarget.movements as movement (movement.stockMovementId)}
+                    <tr class="hover:bg-surface-50 dark:hover:bg-surface-900/20 transition-colors">
+                      <td class={cellClass}>{formatDateTime(movement.occurredAt)}</td>
+                      <td class={cellClass}>
+                        <Badge tone={movement.direction === 'in' ? 'success' : 'warning'}>{movement.direction === 'in' ? 'In' : 'Out'}</Badge>
+                      </td>
+                      <td class={`${cellClass} text-right`}>{formatQty(movement.qtyDelta)}</td>
+                      <td class={`${cellClass} text-right`}>{formatQty(movement.qtyAfter)}</td>
+                      <td class={`${cellClass} text-right`}>{formatMoney(movement.unitCost)}</td>
+                      <td class={`${cellClass} text-right`}>{formatMoney(movement.costAmount)}</td>
+                    </tr>
+                  {/each}
+                {/if}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <svelte:fragment slot="footer">
+    <button
+      type="button"
+      on:click={closeViewLot}
+      class="px-4 py-2.5 bg-surface-100 dark:bg-surface-800 text-secondary-700 dark:text-secondary-300 rounded-xl text-sm font-medium hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
+    >
+      Close
+    </button>
+  </svelte:fragment>
+</Modal>

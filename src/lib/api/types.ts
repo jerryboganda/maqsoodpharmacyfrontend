@@ -250,6 +250,59 @@ export interface StockLotRow {
   qtyOnHand: string;
 }
 
+/** GET /stock-lots/:id -- full lot detail (StockQueryService.getLotById): the listLots fields
+ *  plus the soft-ref/audit columns that endpoint additionally selects, and the lot's last 100
+ *  stock movements. `sourceDocumentTypeId`/`sourceDocumentId`/`supplierId`/`holdReasonId` are
+ *  unresolved soft refs (ids only) -- the backend doesn't join them to a name yet. */
+export interface StockLotDetail {
+  stockLotId: number;
+  itemId: number;
+  batchNo: string | null;
+  expiryDate: string | null;
+  expiryStatus: "known" | "unknown" | "not_applicable";
+  manufacturedOn: string | null;
+  supplierId: number | null;
+  sourceDocumentTypeId: number | null;
+  sourceDocumentId: number | null;
+  receivedOn: string | null;
+  receiptUnitCost: string | null;
+  lotStatus: "available" | "quarantined" | "expired" | "recalled" | "consumed";
+  holdReasonId: number | null;
+  priority: number;
+  qtyOnHand: string;
+  movements: StockMovementRow[];
+}
+
+/** POST /stock-lots/:id/hold body (HoldStockLotDto). */
+export interface HoldStockLotInput {
+  holdReasonId?: number;
+  reason?: string;
+}
+
+/** POST /stock-lots/:id/release body (ReleaseStockLotDto). */
+export interface ReleaseStockLotInput {
+  reason?: string;
+}
+
+/** GET /inventory/expiry-dashboard row -- StockQueryService.expiryDashboard's flat, soonest-first
+ *  shape (not the api-plan doc's 3-array-of-buckets shape -- see that method's header comment). */
+export interface ExpiryDashboardRow {
+  stockLotId: number;
+  itemId: number;
+  itemName: string;
+  batchNo: string | null;
+  expiryDate: string;
+  lotStatus: "available" | "quarantined" | "expired" | "recalled" | "consumed";
+  qtyOnHand: string;
+  daysToExpiry: number;
+  bucket: "expired" | "30" | "60" | "90";
+}
+
+export interface ExpiryDashboardResult {
+  data: ExpiryDashboardRow[];
+  meta: { asOfDate: string };
+}
+
 // ---------------------------------------------------------------------------------------------
 // Inventory -- stock adjustments
 // ---------------------------------------------------------------------------------------------
@@ -296,6 +349,139 @@ export interface StockAdjustmentRow {
   approvedAt: string | null;
   postedAt: string | null;
   lines?: StockAdjustmentLineRow[];
+}
+
+// ---------------------------------------------------------------------------------------------
+// Inventory -- stock takes (physical counts)
+//
+// Status lifecycle (mirrors packages/db/schema/inventory.ts's stockTakes doc comment): draft
+// (header only) -> counting (count sheet generated, staff entering counts) -> reviewed (variance
+// turned into adjustment(s), or explicitly zero everywhere) -> closed (terminal). `cancelled` is
+// reserved for a future /cancel endpoint this frontend has nothing to call yet -- no cancel action
+// is offered anywhere below.
+// ---------------------------------------------------------------------------------------------
+export type StockTakeStatus = "draft" | "counting" | "reviewed" | "closed" | "cancelled";
+
+/** POST /stock-takes body. `scopeCategoryId` is deliberately NOT exposed here -- `item_category`
+ *  doesn't exist yet in the backend package (its own DTO comment documents the same deferral), so
+ *  there is no lookup this frontend could offer for it. */
+export interface CreateStockTakeInput {
+  documentDate: string;
+  scopeItemId?: number;
+  notes?: string;
+}
+
+/** GET /stock-takes row shape, and the header portion of GET /stock-takes/:id -- the raw
+ *  `stock_take` row (packages/db/schema/inventory.ts), camelCase per column. Only the columns this
+ *  frontend actually reads are typed; the rest of the audit/doc pack (createdBy, rowVersion, etc.)
+ *  is a real response field too but nothing here consumes it. */
+export interface StockTakeRow {
+  stockTakeId: number;
+  docNumber: string;
+  status: StockTakeStatus;
+  documentDate: string;
+  postingDate: string;
+  scopeItemId: number | null;
+  scopeCategoryId: number | null;
+  notes: string | null;
+  countSheetGeneratedAt: string | null;
+  reviewedBy: number | null;
+  reviewedAt: string | null;
+  closedBy: number | null;
+  closedAt: string | null;
+  increaseAdjustmentId: number | null;
+  decreaseAdjustmentId: number | null;
+}
+
+/** A `stock_take_line` row as returned inside GET /stock-takes/:id. `qtyVariance` is a DB-generated
+ *  column (`qtyCounted - qtySystem`), NULL until the line is counted. */
+export interface StockTakeLineRow {
+  lineId: number;
+  lineNo: number;
+  itemId: number;
+  stockLotId: number;
+  qtySystem: string;
+  qtyCounted: string | null;
+  qtyVariance: string | null;
+  unitCostSnapshot: string;
+  capturedBatchNo: string | null;
+  capturedExpiryDate: string | null;
+  countedBy: number | null;
+  countedAt: string | null;
+  adjustmentLineId: number | null;
+  notes: string | null;
+}
+
+export interface StockTakeDetail extends StockTakeRow {
+  lines: StockTakeLineRow[];
+}
+
+export interface StockTakeListResult {
+  data: StockTakeRow[];
+  meta: { limit: number; offset: number; hasMore: boolean };
+}
+
+/** PUT /stock-takes/:id/lines line input. Matched server-side by (itemId, stockLotId) against the
+ *  frozen count sheet -- there is no lot-less counting in this module. Submitting a subset of the
+ *  sheet's lines is fine; the endpoint is callable repeatedly (each call just overwrites whichever
+ *  lines it includes), which is what lets a bulk-save button submit only the rows the user actually
+ *  typed a count into. */
+export interface RecordStockTakeCountLineInput {
+  itemId: number;
+  stockLotId: number;
+  qtyCounted: string;
+  capturedBatchNo?: string;
+  capturedExpiryDate?: string;
+  notes?: string;
+}
+
+export interface StockTakeVarianceTotals {
+  totalLines: number;
+  countedLines: number;
+  pendingLines: number;
+  varianceLines: number;
+  netCostImpact: string;
+}
+
+/** PUT /stock-takes/:id/lines response -- summary only (not the full line set), matching what the
+ *  service actually returns. */
+export interface RecordStockTakeCountsResult {
+  acceptedCount: number;
+  varianceSummary: StockTakeVarianceTotals;
+}
+
+/** GET /stock-takes/:id/variance line shape -- same fields as `StockTakeLineRow`'s count columns
+ *  plus a computed `costImpact` (signed: positive = found more than expected) that the plain
+ *  GET /stock-takes/:id line rows don't carry. */
+export interface StockTakeVarianceLine {
+  lineId: number;
+  itemId: number;
+  stockLotId: number;
+  qtySystem: string;
+  qtyCounted: string | null;
+  qtyVariance: string | null;
+  unitCostSnapshot: string;
+  costImpact: string | null;
+}
+
+export interface StockTakeVarianceResult {
+  lines: StockTakeVarianceLine[];
+  totals: StockTakeVarianceTotals;
+}
+
+/** POST /stock-takes/:id/generate-adjustments body. `adjustmentReasonId` should normally be a
+ *  direction `'both'` reason -- a take with variance in both directions produces one increase AND
+ *  one decrease document sharing this same reason id (see the service's own doc comment). */
+export interface GenerateStockTakeAdjustmentsInput {
+  adjustmentReasonId: number;
+  postingDate?: string;
+  notes?: string;
+}
+
+export interface GenerateStockTakeAdjustmentsResult {
+  stockTake: StockTakeDetail;
+  increaseAdjustment: StockAdjustmentRow | null;
+  decreaseAdjustment: StockAdjustmentRow | null;
 }
 
 // ---------------------------------------------------------------------------------------------
