@@ -4,14 +4,21 @@ export interface NavSubItem { path: string; label: string }
 export interface NavItem { path: string; label: string; icon: string; badge?: string | number; children?: NavSubItem[] }
 export interface NavGroup { title: string; items: NavItem[] }
 
-export const navGroups: NavGroup[] = [
+export const pharmacyNavGroups: NavGroup[] = [
   { title: 'Pharmacy', items: [
     { path: '/pharmacy', label: 'Pharmacy Dashboard', icon: Icons.dashboard },
     { path: '/pharmacy/inventory', label: 'Inventory', icon: Icons.package, children: [{ path: '/pharmacy/inventory', label: 'Stock & Lots' }, { path: '/pharmacy/inventory/adjustments', label: 'Adjustments' }, { path: '/pharmacy/inventory/stock-takes', label: 'Stock Takes' }, { path: '/pharmacy/inventory/items', label: 'Items' }, { path: '/pharmacy/inventory/expiry', label: 'Expiry Dashboard' }] },
     { path: '/pharmacy/purchasing/suppliers', label: 'Purchasing', icon: Icons.truck, children: [{ path: '/pharmacy/purchasing/suppliers', label: 'Suppliers' }, { path: '/pharmacy/purchasing/invoices', label: 'Purchase Invoices' }, { path: '/pharmacy/purchasing/orders', label: 'Purchase Orders' }, { path: '/pharmacy/purchasing/returns', label: 'Purchase Returns' }] },
     { path: '/pharmacy/sales/customers', label: 'Sales', icon: Icons.database, children: [{ path: '/pharmacy/sales/customers', label: 'Customers' }, { path: '/pharmacy/sales/invoices', label: 'Sale Invoices' }, { path: '/pharmacy/sales/returns', label: 'Sale Returns' }] },
+    { path: '/pharmacy/accounting/chart-of-accounts', label: 'Accounting', icon: Icons.wallet, children: [{ path: '/pharmacy/accounting/chart-of-accounts', label: 'Chart of Accounts' }, { path: '/pharmacy/accounting/vouchers', label: 'Journal Entries' }, { path: '/pharmacy/accounting/cash-bank', label: 'Cash & Bank' }] },
+    { path: '/pharmacy/payments/transactions', label: 'Payments', icon: Icons.creditCard, children: [{ path: '/pharmacy/payments/transactions', label: 'Payments' }, { path: '/pharmacy/payments/methods', label: 'Payment Methods' }] },
+    { path: '/pharmacy/expenses/transactions', label: 'Expenses', icon: Icons.currencyDollar, children: [{ path: '/pharmacy/expenses/transactions', label: 'Expenses' }, { path: '/pharmacy/expenses/categories', label: 'Expense Categories' }] },
     { path: '/pharmacy/settings/options', label: 'Settings', icon: Icons.settings, children: [{ path: '/pharmacy/settings/options', label: 'Options' }, { path: '/pharmacy/settings/users', label: 'Users & Roles' }] },
-  ] },
+  ] }
+]
+
+export const navGroups: NavGroup[] = [
+  ...pharmacyNavGroups,
   { title: 'Dashboards', items: [
     { path: '/dashboard', label: 'Overview', icon: Icons.dashboard },
     { path: '/dashboard/analytics', label: 'Analytics', icon: Icons.chartLine, badge: 'New' },

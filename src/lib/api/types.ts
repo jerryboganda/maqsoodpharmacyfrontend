@@ -1070,3 +1070,470 @@ export interface ItemListResult {
   offset: number;
   limit: number;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Accounting -- chart of accounts, journal entries / manual vouchers, cash & bank
+// (mirrors rebuild/apps/api/src/modules/accounting -- the source of truth). Two DIFFERENT line
+// shapes exist server-side and this file keeps them distinct, not aliased to each other:
+//  - `GlLedgerLine` (LedgerQueryService, shared by GET /gl/accounts/:id/ledger and
+//    GET /cash-bank/book): a journal_line INNER JOINed to its parent journal_entry, with the
+//    signed amounts folded into named `debit`/`credit` fields and a computed `runningBalance`.
+//  - `JournalEntryLineRow` (JournalEntryService#getById/createManualVoucher/reverse): a PLAIN
+//    `journal_line` table row, unjoined -- field names are `debitAmount`/`creditAmount` (not
+//    `debit`/`credit`), there is no `runningBalance`, and there is no per-line entryNo/entryDate/
+//    documentTypeCode/description (those live on the parent `entry` object instead, not on each
+//    line) -- confirmed by reading ledger-query.service.ts vs journal-entry.service.ts directly,
+//    NOT the same shape "minus runningBalance" a first read of the endpoint list might suggest.
+// ---------------------------------------------------------------------------------------------
+
+// ---- GL accounts (chart of accounts) -----------------------------------------------------
+export interface GlAccountTreeLeaf {
+  glAccountId: number;
+  code: string;
+  name: string;
+  accountNature: string;
+  normalBalance: "debit" | "credit";
+  isContra: boolean;
+  isPostable: boolean;
+  isActive: boolean;
+}
+export interface GlAccountTreeSub {
+  glAccountSubId: number;
+  code: string;
+  name: string;
+  subledgerKind: string | null;
+  isControlAccount: boolean;
+  accounts: GlAccountTreeLeaf[];
+}
+export interface GlAccountTreeCategory {
+  glAccountCategoryId: number;
+  code: string;
+  name: string;
+  statementSection: string;
+  subs: GlAccountTreeSub[];
+}
+export interface GlAccountTreeMain {
+  glAccountMainId: number;
+  code: string;
+  name: string;
+  accountNature: string;
+  normalBalance: "debit" | "credit";
+  categories: GlAccountTreeCategory[];
+}
+export interface GlAccountTreeResult {
+  data: GlAccountTreeMain[];
+}
+
+/** GET /gl/accounts (flat, no `tree` param) row -- one leaf account pre-joined to its own
+ *  sub/category/main ancestry (gl-account.service.ts#getFlat). No `limit`/`offset` -- this
+ *  endpoint returns every leaf for the tenant, unpaginated (confirmed: no such query params on
+ *  ListGlAccountsQuerySchema). */
+export interface GlAccountFlatRow {
+  glAccountId: number;
+  code: string;
+  name: string;
+  nameUr: string | null;
+  accountNature: string;
+  normalBalance: "debit" | "credit";
+  isContra: boolean;
+  isPostable: boolean;
+  isSystem: boolean;
+  isActive: boolean;
+  glAccountSubId: number;
+  subCode: string;
+  subName: string;
+  subledgerKind: string | null;
+  glAccountCategoryId: number;
+  categoryCode: string;
+  categoryName: string;
+  glAccountMainId: number;
+  mainCode: string;
+  mainName: string;
+}
+export interface GlAccountListResult {
+  data: GlAccountFlatRow[];
+}
+
+/** GET /gl/accounts/:id -- each of the 4 objects is the FULL raw table row for its level
+ *  (gl-account.service.ts#getById selects `glAccounts`/`glAccountSubs`/`glAccountCategories`/
+ *  `glAccountMains` wholesale, not a curated projection) -- only the fields this frontend
+ *  actually reads are typed below; extra real response fields (tenantId, sortOrder, ...) exist
+ *  but are simply not accessed. */
+export interface GetGlAccountResult {
+  account: GlAccountTreeLeaf & { glAccountSubId: number };
+  sub: { glAccountSubId: number; code: string; name: string; subledgerKind: string | null; isControlAccount: boolean };
+  category: { glAccountCategoryId: number; code: string; name: string; statementSection: string };
+  main: { glAccountMainId: number; code: string; name: string; accountNature: string; normalBalance: "debit" | "credit" };
+}
+
+/** One `journal_line` INNER JOINed to its parent `journal_entry` with a computed running
+ *  balance (LedgerQueryService.getAccountLedger) -- shared verbatim by GET /gl/accounts/:id/ledger
+ *  and GET /cash-bank/book. */
+export interface GlLedgerLine {
+  journalLineId: number;
+  lineNo: number;
+  journalEntryId: number;
+  entryNo: string;
+  entryDate: string;
+  postedAt: string | null;
+  documentTypeCode: string;
+  sourceDocumentId: number | null;
+  description: string | null;
+  memo: string | null;
+  legRole: string;
+  supplierId: number | null;
+  customerId: number | null;
+  debit: string;
+  credit: string;
+  runningBalance: string;
+}
+export interface GlAccountLedgerResult {
+  account: { glAccountId: number; code: string; name: string; normalBalance: "debit" | "credit" };
+  openingBalance: string;
+  lines: GlLedgerLine[];
+  closingBalance: string;
+  offset: number;
+  limit: number;
+  total: number;
+}
+
+// ---- Journal entries / manual vouchers (JV/CP/CR/BP/BR) --------------------------------------
+/** Fields common to the list row and the `entry`/`original`/`reversal` objects returned by the
+ *  detail/create/reverse endpoints -- all of these are the raw `journal_entry` table row
+ *  (journal-entry.service.ts selects it wholesale throughout), so `JournalEntryRow` below is a
+ *  safe superset for every one of those call sites even though a couple of extra real columns
+ *  (tenantId, branchId, reversalSeq, postedBy, reversalReason, ...) go untyped here. */
+export interface JournalEntryRow {
+  journalEntryId: number;
+  entryNo: string;
+  entryDate: string;
+  documentTypeCode: string;
+  sourceDocumentId: number | null;
+  description: string;
+  totalDebit: string;
+  totalCredit: string;
+  lineCount: number;
+  status: "draft" | "posted" | "reversed";
+  postedAt: string | null;
+  reversalOfJournalId: number | null;
+}
+export interface JournalEntryListResult {
+  journalEntries: JournalEntryRow[];
+  offset: number;
+  limit: number;
+}
+
+/** A raw `journal_line` table row, UNJOINED -- returned by GET /gl/journal-entries/:id,
+ *  POST /gl/journal-entries, POST /gl/journal-entries/:id/reverse, and POST /cash-bank/transfers.
+ *  See this section's header comment: field names are `debitAmount`/`creditAmount` (not
+ *  `debit`/`credit`), and there is no entryNo/entryDate/documentTypeCode/description here --
+ *  those live only on the sibling `entry` object each of those responses also returns. */
+export interface JournalEntryLineRow {
+  journalLineId: number;
+  journalEntryId: number;
+  lineNo: number;
+  glAccountId: number;
+  debitAmount: string;
+  creditAmount: string;
+  analysisAccountId: number | null;
+  supplierId: number | null;
+  customerId: number | null;
+  itemId: number | null;
+  legRole: string;
+  memo: string | null;
+}
+
+export interface ManualVoucherInfo {
+  manualVoucherId: number;
+  voucherCategoryId: number;
+  narration: string;
+  categoryCode: string;
+  categoryName: string;
+}
+
+export interface GetJournalEntryResult {
+  entry: JournalEntryRow;
+  lines: JournalEntryLineRow[];
+  manualVoucher: ManualVoucherInfo | null;
+}
+
+export interface CreateJournalEntryLineInput {
+  glAccountId: number;
+  /** Exactly one of debit/credit per line -- never both, never neither (server re-validates). */
+  debit?: string;
+  credit?: string;
+  supplierId?: number;
+  customerId?: number;
+  memo?: string;
+}
+export interface CreateJournalEntryInput {
+  voucherCategoryId: number;
+  documentDate: string;
+  postingDate: string;
+  narration: string;
+  lines: CreateJournalEntryLineInput[];
+}
+/** Always carries a non-null `manualVoucher` in practice (POST /gl/journal-entries always creates
+ *  one) -- typed nullable only for structural parity with `GetJournalEntryResult`. */
+export interface CreateJournalEntryResult {
+  entry: JournalEntryRow;
+  lines: JournalEntryLineRow[];
+  manualVoucher: ManualVoucherInfo | null;
+}
+
+export interface ReverseJournalEntryInput {
+  reason: string;
+  postingDate: string;
+}
+export interface ReverseJournalEntryResult {
+  original: JournalEntryRow;
+  reversal: JournalEntryRow;
+  reversalLines: JournalEntryLineRow[];
+}
+
+/** GET /settings/options/accounting.voucher_category row meta (seed.ts's VOUCHER_CATEGORIES).
+ *  `requiredCashBankAccountKind` is an ARRAY of kinds (e.g. `["cash_drawer","petty_cash"]` for
+ *  CP/CR, `["bank"]` for BP/BR), not a single kind -- JV's is `null` (no cash/bank leg required
+ *  at all). */
+export interface VoucherCategoryMeta {
+  headerSide: "debit" | "credit" | null;
+  detailSide: "debit" | "credit" | null;
+  requiredCashBankAccountKind: string[] | null;
+}
+export type VoucherCategoryOption = Omit<OptionValueResponse, "meta"> & {
+  meta: VoucherCategoryMeta | null;
+};
+
+// ---- Cash & bank accounts ----------------------------------------------------------------
+export type CashBankAccountKind = "cash_drawer" | "petty_cash" | "bank" | "mobile_wallet" | "card_settlement";
+
+export interface CashBankAccountRow {
+  cashBankAccountId: number;
+  glAccountId: number;
+  accountKind: CashBankAccountKind;
+  bankName: string | null;
+  branchName: string | null;
+  accountNo: string | null;
+  iban: string | null;
+  openingBalanceAmount: string;
+  allowNegative: boolean;
+  isDefaultForSales: boolean;
+  isActive: boolean;
+}
+export interface CashBankAccountListResult {
+  cashBankAccounts: CashBankAccountRow[];
+  offset: number;
+  limit: number;
+}
+/** POST /cash-bank-accounts body -- `openingBalanceAmount` is deliberately not a field here; the
+ *  server always forces it to "0.00" regardless of anything sent (cash-bank.service.ts#create). */
+export interface CreateCashBankAccountInput {
+  glAccountId: number;
+  accountKind: CashBankAccountKind;
+  bankName?: string;
+  branchName?: string;
+  accountNo?: string;
+  iban?: string;
+  allowNegative?: boolean;
+  isDefaultForSales?: boolean;
+}
+
+/** GET /cash-bank/book -- NOT the same shape as `GlAccountLedgerResult`: cash-bank.service.ts#book
+ *  spreads the ledger result next to flat `cashBankAccountId`/`glAccountId` fields, there is no
+ *  nested `account: { code, name, normalBalance }` object here (the caller already has the
+ *  account's code/name from the cash-bank-accounts list it fetched to build this view). */
+export interface CashBankBookResult {
+  cashBankAccountId: number;
+  glAccountId: number;
+  openingBalance: string;
+  lines: GlLedgerLine[];
+  closingBalance: string;
+  offset: number;
+  limit: number;
+  total: number;
+}
+
+export interface CreateCashBankTransferInput {
+  fromCashBankAccountId: number;
+  toCashBankAccountId: number;
+  amount: string;
+  transferDate: string;
+  memo?: string;
+}
+/** `from`/`to` are NOT full `CashBankAccountRow`s -- cash-bank.service.ts#transfer's own
+ *  `assertActiveAccount` helper selects only these 3 columns. */
+export interface CashBankTransferParty {
+  cashBankAccountId: number;
+  glAccountId: number;
+  isActive: boolean;
+}
+export interface CreateCashBankTransferResult {
+  entry: JournalEntryRow;
+  lines: JournalEntryLineRow[];
+  from: CashBankTransferParty;
+  to: CashBankTransferParty;
+  amount: string;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Payments (module `payments` -- src/lib/api/payments.ts). Note: `PaymentMethod` above (line
+// ~200) is the pre-existing lightweight shape `lookupsApi.paymentMethods()` uses for picker
+// dropdowns elsewhere (invoices/sale forms); `PaymentMethodRow` here is the fuller admin-CRUD
+// shape confirmed live against GET/POST/PATCH /payment-methods -- deliberately a separate type,
+// not a rename of the existing one, to avoid touching call sites outside this task's scope.
+// ---------------------------------------------------------------------------------------------
+export interface PaymentMethodRow {
+  paymentMethodId: number;
+  code: string;
+  name: string;
+  description: string | null;
+  directionAllowed: "in" | "out" | "both";
+  defaultCashBankAccountId: number | null;
+  requiresReference: boolean;
+  requiresBankAccount: boolean;
+  requiresChequeDetails: boolean;
+  settlementLagDays: number;
+  isCounterMethod: boolean;
+  minPermissionId: number | null;
+  isDefault: boolean;
+  isEnabled: boolean;
+  sortOrder: number;
+}
+export interface PaymentMethodListResult {
+  paymentMethods: PaymentMethodRow[];
+}
+export interface CreatePaymentMethodInput {
+  code: string;
+  name: string;
+  description?: string;
+  directionAllowed: "in" | "out" | "both";
+  defaultCashBankAccountId?: number;
+  requiresReference: boolean;
+  requiresBankAccount: boolean;
+  requiresChequeDetails: boolean;
+  settlementLagDays: number;
+  isCounterMethod: boolean;
+  minPermissionId?: number;
+  isDefault: boolean;
+  isEnabled: boolean;
+  sortOrder: number;
+}
+/** PATCH /payment-methods/:id -- every field optional; `code` is immutable via this endpoint
+ *  (payment-method.dto.ts's own doc comment -- it's what doc-number/lookup keys off). */
+export type UpdatePaymentMethodInput = Partial<Omit<CreatePaymentMethodInput, "code">>;
+
+export type PaymentDirection = "out" | "in";
+export type PaymentPartyKind = "supplier" | "customer" | "employee" | "other";
+export type PaymentStatus = "draft" | "confirmed" | "posted" | "cancelled" | "reversed";
+/** Stored/reported only this wave -- `createAndPost` never auto-allocates regardless of this
+ *  value (confirmed against payment.service.ts's own createAndPost: only an explicit
+ *  `allocations` array is ever applied). The UI derives this from what the user actually did
+ *  ("specific" if allocations were picked, "on_account" otherwise) rather than offering
+ *  "oldest_first" as a real auto-allocate choice. */
+export type PaymentAllocationMode = "specific" | "oldest_first" | "on_account";
+
+export interface PaymentRow {
+  paymentId: number;
+  branchId: number;
+  docNumber: string;
+  documentDate: string;
+  postingDate: string;
+  fiscalPeriodId: number;
+  status: PaymentStatus;
+  postedAt: string | null;
+  postedBy: number | null;
+  cancelledAt: string | null;
+  cancelledBy: number | null;
+  cancelReasonId: number | null;
+  reversalOfId: number | null;
+  notes: string | null;
+  direction: PaymentDirection;
+  partyKind: PaymentPartyKind;
+  supplierId: number | null;
+  customerId: number | null;
+  otherPartyName: string | null;
+  paymentMethodId: number;
+  cashBankAccountId: number;
+  amount: string;
+  allocatedAmount: string;
+  unallocatedAmount: string;
+  allocationMode: PaymentAllocationMode;
+  referenceNo: string | null;
+  chequeNo: string | null;
+  chequeDate: string | null;
+  chequeStatus: string | null;
+  journalEntryId: number | null;
+}
+export interface PaymentAllocationRow {
+  paymentAllocationId: number;
+  paymentId: number;
+  targetDocumentTypeId: number;
+  targetDocumentId: number;
+  allocatedAmount: string;
+  allocatedAt: string;
+  allocatedBy: number | null;
+  isAuto: boolean;
+  reversedAt: string | null;
+  reversalOfId: number | null;
+}
+export interface PaymentListResult {
+  payments: PaymentRow[];
+  offset: number;
+  limit: number;
+}
+export interface GetPaymentResult {
+  payment: PaymentRow;
+  allocations: PaymentAllocationRow[];
+}
+
+/** One open document (invoice/return) available to allocate a payment against -- returned by
+ *  GET /payments/allocation-candidates (payment.service.ts's `AllocationCandidate`).
+ *  `targetDocumentKind` is display-only context; what actually gets sent back on create/allocate
+ *  is `targetDocumentTypeId` + `targetDocumentId` verbatim. */
+export interface PaymentAllocationCandidate {
+  targetDocumentTypeId: number;
+  targetDocumentKind: "PURCHASE" | "PURCHASE_RETURN" | "SALE" | "SALE_RETURN";
+  targetDocumentId: number;
+  docNumber: string;
+  documentDate: string;
+  totalAmount: string;
+  outstandingAmount: string;
+}
+export interface AllocationCandidatesResult {
+  candidates: PaymentAllocationCandidate[];
+}
+
+export interface PaymentAllocationInput {
+  targetDocumentTypeId: number;
+  targetDocumentId: number;
+  allocatedAmount: string;
+}
+/** POST /payments. This wave only supports (direction=out, partyKind=supplier) and
+ *  (direction=in, partyKind=customer) -- payment.service.ts's `assertSupportedDirectionParty`
+ *  422s anything else as `PAYMENT.UNSUPPORTED_DIRECTION_PARTY`. The UI never constructs the
+ *  unsupported combinations (employee/other, or the two crossed pairs), so `partyKind` is
+ *  derived from `direction` client-side rather than offered as an independent choice. */
+export interface CreatePaymentInput {
+  direction: PaymentDirection;
+  partyKind: PaymentPartyKind;
+  supplierId?: number;
+  customerId?: number;
+  otherPartyName?: string;
+  paymentMethodId: number;
+  cashBankAccountId: number;
+  amount: string;
+  referenceNo?: string;
+  chequeNo?: string;
+  chequeDate?: string;
+  documentDate: string;
+  allocationMode?: PaymentAllocationMode;
+  allocations?: PaymentAllocationInput[];
+  notes?: string;
+}
+export interface AddPaymentAllocationsInput {
+  allocations: PaymentAllocationInput[];
+}
+export interface CancelPaymentInput {
+  cancelReasonId?: number;
+  reason?: string;
+}

@@ -6,5 +6,7 @@ export { lookupsApi } from "./lookups";
 export { inventoryApi } from "./inventory";
 export { purchasingApi } from "./purchasing";
 export { salesApi } from "./sales";
+export { paymentsApi } from "./payments";
+export { accountingApi } from "./accounting";
 export * from "./format";
 export * from "./types";
