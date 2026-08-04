@@ -34,6 +34,20 @@ export class ApiNetworkError extends Error {
   }
 }
 
+// Bearer token for the current session, held in memory only. `src/lib/stores/session.ts` is the
+// single writer -- it mirrors the token to sessionStorage (not localStorage, to limit how long a
+// stolen token survives an XSS) so a page reload can restore it, then replays it here via
+// `setAuthToken`. This module never touches Web Storage itself; it just attaches whatever token
+// session.ts last set to every outgoing request.
+let authToken: string | null = null;
+
+/** Sets (or clears, with `null`) the bearer token attached to every subsequent request. Called
+ *  only from `src/lib/stores/session.ts` -- see that file for the sessionStorage-backed
+ *  persistence this feeds from. */
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+
 function buildUrl(path: string, query?: Record<string, string | number | boolean | undefined>): string {
   const url = new URL(path, PUBLIC_API_BASE_URL);
   if (query) {
@@ -52,7 +66,7 @@ function newIdempotencyKey(): string {
 }
 
 async function request<T>(
-  method: "GET" | "POST" | "PATCH",
+  method: "GET" | "POST" | "PATCH" | "PUT",
   path: string,
   opts: {
     query?: Record<string, string | number | boolean | undefined>;
@@ -68,6 +82,9 @@ async function request<T>(
   }
   if (method !== "GET") {
     headers["Idempotency-Key"] = opts.idempotencyKey ?? newIdempotencyKey();
+  }
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
   }
 
   let res: Response;
@@ -107,5 +124,7 @@ export const api = {
   /** `idempotencyKey`: pass the SAME key across retries of the same logical action (17§7.5 --
    *  minted once when the form opens, not per click). Omit to mint a fresh one-shot key. */
   post: <T>(path: string, body?: unknown, idempotencyKey?: string) => request<T>("POST", path, { body, idempotencyKey }),
+  patch: <T>(path: string, body?: unknown, idempotencyKey?: string) => request<T>("PATCH", path, { body, idempotencyKey }),
+  put: <T>(path: string, body?: unknown, idempotencyKey?: string) => request<T>("PUT", path, { body, idempotencyKey }),
   newIdempotencyKey,
 };

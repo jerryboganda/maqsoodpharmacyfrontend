@@ -1,4 +1,5 @@
-export { api, ApiError, ApiNetworkError } from "./client";
+export { api, ApiError, ApiNetworkError, setAuthToken } from "./client";
+export { authApi } from "./auth";
 export { identityApi } from "./identity";
 export { catalogApi } from "./catalog";
 export { lookupsApi } from "./lookups";

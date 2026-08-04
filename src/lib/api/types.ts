@@ -26,6 +26,63 @@ export interface UserResponse {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Identity -- user/role administration (owner/sys_admin only)
+// ---------------------------------------------------------------------------------------------
+export interface AdminUserRow {
+  userId: string;
+  username: string;
+  displayName: string;
+  isActive: boolean;
+  mustChangePassword: boolean;
+  roles: string[];
+}
+
+export interface CreateUserInput {
+  username: string;
+  displayName: string;
+  /** At least one role -- the backend rejects an empty array (a zero-role user could never
+   *  reach any permission-gated route, including its own self-service ones). */
+  roles: string[];
+}
+
+export interface CreateUserResult extends AdminUserRow {
+  /** Shown exactly once, in this response only -- cannot be retrieved again. */
+  temporaryPassword: string;
+}
+
+export interface RoleRow {
+  roleId: number;
+  roleKey: string;
+  displayName: string;
+  description: string | null;
+  isSystem: boolean;
+}
+
+export interface PermissionRow {
+  permissionId: number;
+  code: string;
+  name: string;
+  description: string | null;
+  permissionKind: string;
+  isSensitive: boolean;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Auth (mirrors rebuild/apps/api/src/modules/auth/api/dto/auth.dto.ts -- the source of truth)
+// ---------------------------------------------------------------------------------------------
+export interface LoginResponse {
+  token: string;
+  expiresAt: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  roles: string[];
+  /** true when the account must change its password before continuing -- the login itself still
+   *  succeeded (a real, usable session token is returned), this only gates the rest of the app. */
+  mustChangePassword: boolean;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Settings (generic P1 option lists -- keyed lookups like "supplier_payment.method")
 // ---------------------------------------------------------------------------------------------
 export interface OptionValueResponse {
