@@ -3,7 +3,7 @@
   import { page } from '$app/stores'
   import Icon from '../common/Icon.svelte'
   import { Icons } from '../../icons'
-  import { pharmacyNavGroups, type NavGroup, type NavItem } from '../../navigation'
+  import { navGroups, pharmacyNavGroups, type NavGroup, type NavItem } from '../../navigation'
 
   let pathname = ''
   let openGroup: string | null = null
@@ -12,7 +12,11 @@
 
   $: pathname = String($page.url.pathname)
 
-  const groups = pharmacyNavGroups
+  // Route-aware, same reasoning as AdminShell.svelte's own sidebarGroups: this component renders
+  // on every AdminShell-wrapped route, not just /pharmacy/*.
+  $: groups = pathname.startsWith('/pharmacy')
+    ? pharmacyNavGroups
+    : navGroups.filter((group) => ['Dashboards', 'Apps', 'Pages', 'Forms', 'Tables', 'Charts'].includes(group.title))
 
   function isActive(path: string): boolean {
     if (path === '/dashboard') return pathname === path
