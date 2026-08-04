@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { goto } from '$app/navigation'
-  import { onMount } from 'svelte'
   import { locale } from '../stores/locale'
   import AdminShell from './layout/AdminShell.svelte'
   import DashboardPage from './dashboard/DashboardPage.svelte'
@@ -61,7 +59,6 @@
   import ExpenseCategoriesPage from './pharmacy/ExpenseCategoriesPage.svelte'
 
   export let path = '/dashboard'
-  let redirected = false
   let dashboardVariant: 'overview' | 'analytics' | 'ecommerce' | 'crm' = 'overview'
   let authKind: 'login' | 'register' | 'forgot' = 'login'
   let authCard = false
@@ -73,19 +70,14 @@
   $: dashboardVariant = path === '/dashboard/analytics' ? 'analytics' : path === '/dashboard/ecommerce' ? 'ecommerce' : path === '/dashboard/crm' ? 'crm' : 'overview'
   $: authKind = path.endsWith('register') ? 'register' : path.endsWith('forgot-password') ? 'forgot' : 'login'
   $: authCard = path.startsWith('/auth-card/')
-
-  onMount(() => {
-    if (path === '/charts' && !redirected) {
-      redirected = true
-      goto('/charts/line', { replaceState: true })
-    }
-  })
+  // /charts -> /charts/line is now handled by src/routes/charts/+page.ts's load() redirect,
+  // which resolves before this component (and its >1MB chunk of every page in the app) needs
+  // to load at all -- see that file's comment for why the previous onMount-based redirect here
+  // stopped reliably beating a 5s test assertion once Wave 5 grew this chunk further.
 </script>
 
 {#key $locale}
-{#if path === '/charts'}
-  <div class="min-h-[50vh] flex items-center justify-center text-secondary-500">Redirecting to line charts...</div>
-{:else if path === '/pharmacy/login'}
+{#if path === '/pharmacy/login'}
   <PharmacyLoginPage />
 {:else if path === '/pharmacy'}
   <AdminShell showCustomizer={false}><PharmacyDashboardPage /></AdminShell>
