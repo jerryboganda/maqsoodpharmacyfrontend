@@ -383,10 +383,15 @@
   // same pattern ExpensesPage.svelte's own line forms rely on), so this reactive block fires on
   // every cart edit too, not just add/remove.
   $: {
-    cart
-    customerId
-    tenderAmount
-    tenderPaymentMethodId
+    // Bare identifier statements (`cart` / `customerId` / ...) are the common Svelte idiom for
+    // registering extra reactive dependencies on a `$:` block, but ESLint's
+    // @typescript-eslint/no-unused-expressions flags them as no-op expression statements (it has
+    // no notion of Svelte's own reactivity analysis). Referencing them inside a template literal
+    // assigned to a variable satisfies both: Svelte's compiler still statically finds every
+    // identifier reference in the block (assignment position doesn't matter to it), and ESLint
+    // sees a real VariableDeclaration, not a bare ExpressionStatement.
+    const _previewDeps = `${JSON.stringify(cart)}|${customerId}|${tenderAmount}|${tenderPaymentMethodId}`
+    void _previewDeps
     schedulePreview()
   }
 
