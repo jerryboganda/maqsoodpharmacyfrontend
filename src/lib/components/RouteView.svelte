@@ -67,7 +67,13 @@
   // promise chain redundantly; `import()` itself is already cached by the module loader regardless.
   let PharmacyRouteView: typeof import('./PharmacyRouteView.svelte')['default'] | null = null
   let pharmacyLoadError: Error | null = null
-  $: if (path.startsWith('/pharmacy') && !PharmacyRouteView && !pharmacyLoadError) {
+  // A plain function, not an inline `$: if (...) { ... }` block -- ESLint's svelte/infinite-
+  // reactive-loop rule (correctly cautious, not a false positive to just silence) flags a reactive
+  // statement that both READS and WRITES the same variables in one block, since it can't prove
+  // termination statically. The reactive trigger below only ever depends on `path`; this function
+  // owns its own read-then-maybe-write guard entirely outside Svelte's reactivity tracking.
+  function ensurePharmacyRouteViewLoaded(currentPath: string): void {
+    if (!currentPath.startsWith('/pharmacy') || PharmacyRouteView || pharmacyLoadError) return
     void import('./PharmacyRouteView.svelte')
       .then((module) => {
         PharmacyRouteView = module.default
@@ -76,6 +82,7 @@
         pharmacyLoadError = error instanceof Error ? error : new Error('Unable to load pharmacy module')
       })
   }
+  $: ensurePharmacyRouteViewLoaded(path)
 </script>
 
 {#key $locale}
