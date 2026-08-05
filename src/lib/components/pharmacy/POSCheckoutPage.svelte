@@ -242,7 +242,13 @@
   // service.ts's own price-resolution comment), so a packUnits>1 item's price field is shown
   // inline and required, mirroring SaleInvoicesPage.svelte's identical handling of that same rule.
   // ---------------------------------------------------------------------------------------------
-  type CartLine = { item: ItemSummary; qty: string; unitSalePrice: string }
+  // `dispensingNote` -- U-062/D18/R7 (Wave 8): one free-text field, shown inline only when
+  // `item.isControlledDrug`, per R7's own design commitment ("a controlled-substance sale prompts
+  // one extra, clearly-labelled field at the point it's already being rung up, never a separate
+  // compliance module"). Always present on every cart line (not just controlled ones) so
+  // `addToCart`/`buildLines` don't need a branch -- it's simply never shown or sent for a
+  // non-controlled item.
+  type CartLine = { item: ItemSummary; qty: string; unitSalePrice: string; dispensingNote: string }
   let cart: CartLine[] = []
 
   function qtyOk(item: ItemSummary, qty: string): boolean {
@@ -265,7 +271,7 @@
       existing.qty = incrementQty(existing.qty)
       cart = [...cart]
     } else {
-      cart = [...cart, { item, qty: '1', unitSalePrice: '' }]
+      cart = [...cart, { item, qty: '1', unitSalePrice: '', dispensingNote: '' }]
     }
     searchQuery = ''
     searchResults = []
@@ -315,6 +321,7 @@
     return cart.map((l) => {
       const built: SaleLineInput = { itemId: l.item.itemId, qty: l.qty.trim() }
       if (l.unitSalePrice.trim() !== '') built.unitSalePrice = l.unitSalePrice.trim()
+      if (l.item.isControlledDrug && l.dispensingNote.trim() !== '') built.dispensingNote = l.dispensingNote.trim()
       return built
     })
   }
@@ -639,12 +646,31 @@
                     {@const total = lineTotal(line.item.itemId)}
                     <tr>
                       <td class={cellClass}>
-                        <p class="font-medium text-secondary-900 dark:text-white">{line.item.name}</p>
+                        <div class="flex items-center gap-1.5">
+                          <p class="font-medium text-secondary-900 dark:text-white">{line.item.name}</p>
+                          {#if line.item.isControlledDrug}<Badge tone="warning">Controlled</Badge>{/if}
+                        </div>
                         <p class="text-xs text-secondary-400 font-mono">{line.item.customCode} -- list {formatMoney(line.item.salePrice)}</p>
                         {#if !qtyOk(line.item, line.qty)}
                           <p class="text-xs text-danger-500 mt-0.5">
                             {line.item.allowDecimalQty ? 'Enter a quantity greater than zero.' : 'This item only accepts whole-number quantities.'}
                           </p>
+                        {/if}
+                        {#if line.item.isControlledDrug}
+                          <!-- U-062/D18/R7 (Wave 8): optional dispensing note, right where the item is
+                               already being rung up -- never required, never validated against any
+                               invented rule. See sale-invoice.dto.ts's dispensingNote comment. -->
+                          <div class="mt-1.5 max-w-xs">
+                            <label class="sr-only" for={`pos-note-${line.item.itemId}`}>Dispensing note for {line.item.name}</label>
+                            <input
+                              id={`pos-note-${line.item.itemId}`}
+                              type="text"
+                              maxlength="500"
+                              placeholder="Dispensing note (buyer, prescriber, Rx ref -- optional)"
+                              class="w-full px-2.5 py-1.5 bg-warning-50 dark:bg-warning-900/10 border border-warning-200 dark:border-warning-800 rounded-lg text-xs text-secondary-900 dark:text-white placeholder-secondary-400 focus:outline-none focus:ring-2 focus:ring-theme-primary/20 focus:border-theme-primary transition-all"
+                              bind:value={line.dispensingNote}
+                            />
+                          </div>
                         {/if}
                         {#if line.item.packUnits > 1}
                           <div class="mt-1.5 max-w-[10rem]">

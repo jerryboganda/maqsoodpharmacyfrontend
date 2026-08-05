@@ -1,5 +1,5 @@
-// Reporting module client (Wave 6) -- GET /reports (the static report registry) and
-// POST /reports/{reportId}/run (dispatches to one of the 8 report handlers). Also wires
+// Reporting module client (Wave 6, +1 report in Wave 8) -- GET /reports (the static report
+// registry) and POST /reports/{reportId}/run (dispatches to one of the 9 report handlers). Also wires
 // GET /metrics/definitions, a small static catalogue the page surfaces as descriptive text near
 // the report picker.
 //
@@ -13,7 +13,7 @@
 // shape server-side (application/report-filters.ts). The per-report filter interfaces below match
 // those Zod schemas field-for-field. `runReport` is overloaded on the literal `reportId` so a
 // caller passing "sales-summary" gets `SalesSummaryFilters` + `SalesSummaryRow` typed back, not a
-// generic bag -- see report-registry.ts for the 8 reportIds this switches on.
+// generic bag -- see report-registry.ts for the 9 reportIds this switches on.
 //
 // Not re-exported through ./index.ts's barrel (same reasoning as expenses.ts's own header
 // comment): index.ts is a small shared registry another concurrently-running agent may also be
@@ -214,6 +214,31 @@ export interface LowStockRunReportResult extends RunReportResult<LowStockRow> {
   readonly thresholdQty: string;
 }
 
+// ---------------------------------------------------------------------------------------------
+// controlled-drug-register -- reports.service.ts#runControlledDrugRegister (Wave 8, U-062/D18/R7).
+// One row per posted sale line for a controlled-drug item. `dispensingNote` is the free-text field
+// captured optionally at POS checkout (POSCheckoutPage.svelte); `dispensedByUserId`/
+// `dispensedByName` are who posted the sale, not necessarily a licensed dispensing pharmacist --
+// this report shows what the system already captures, it does not assert legal compliance.
+// ---------------------------------------------------------------------------------------------
+export interface ControlledDrugRegisterFilters {
+  dateFrom?: string;
+  dateTo?: string;
+  itemId?: number;
+}
+export interface ControlledDrugRegisterRow {
+  key: string;
+  docNumber: string;
+  postingDate: string;
+  itemId: number;
+  itemName: string;
+  batchNo: string | null;
+  qty: string;
+  dispensingNote: string | null;
+  dispensedByUserId: number | null;
+  dispensedByName: string | null;
+}
+
 /** Union of every report's row shape -- for UI code (ReportsPage.svelte) that renders whichever
  *  report the user picked and narrows by `reportId` before reading shape-specific fields. */
 export type AnyReportRow =
@@ -223,7 +248,8 @@ export type AnyReportRow =
   | ExpiryBucketRow
   | ReorderLevelRow
   | AgingRow
-  | LowStockRow;
+  | LowStockRow
+  | ControlledDrugRegisterRow;
 
 /** Loosened result shape `runReport`'s dispatcher normalizes every typed overload result into --
  *  see ReportsPage.svelte's `runSelected` for why a single report-picker UI needs one common
@@ -247,6 +273,10 @@ function runReport(reportId: "reorder-level", body?: RunReportBody<ReorderLevelF
 function runReport(reportId: "ap-aging", body?: RunReportBody<ApAgingFilters>): Promise<AgingRunReportResult>;
 function runReport(reportId: "ar-aging", body?: RunReportBody<ArAgingFilters>): Promise<AgingRunReportResult>;
 function runReport(reportId: "low-stock", body?: RunReportBody<LowStockFilters>): Promise<LowStockRunReportResult>;
+function runReport(
+  reportId: "controlled-drug-register",
+  body?: RunReportBody<ControlledDrugRegisterFilters>,
+): Promise<RunReportResult<ControlledDrugRegisterRow>>;
 function runReport(reportId: string, body?: RunReportBody<Record<string, unknown>>): Promise<AnyRunReportResult>;
 // Implementation signature only -- never seen by callers (the 9 overloads above are the entire
 // public surface). Typed loosely with `any` deliberately: each overload's `RunReportBody<F>` (F a

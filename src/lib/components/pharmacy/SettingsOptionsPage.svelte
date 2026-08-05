@@ -30,9 +30,11 @@
   import Modal from './shared/Modal.svelte'
   import Badge from './shared/Badge.svelte'
   import { toast } from '../../stores/toast'
-  import { api, ApiError, ApiNetworkError } from '../../api'
+  import { api, ApiError, ApiNetworkError, formatDate, todayYmd } from '../../api'
   import { optionsApi } from '../../api/options'
   import type { OptionListSummary, OptionItemRow, CreateOptionItemInput, UpdateOptionItemInput } from '../../api/options'
+  import { branchesApi } from '../../api/branches'
+  import type { BranchRow, UpdateBranchInput } from '../../api/branches'
 
   const inputClass =
     'w-full px-4 py-2.5 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-secondary-900 dark:text-white placeholder-secondary-400 focus:outline-none focus:ring-2 focus:ring-theme-primary/20 focus:border-theme-primary transition-all disabled:opacity-60 disabled:cursor-not-allowed'
@@ -52,6 +54,94 @@
   function toOptional(value: string): string | undefined {
     const trimmed = value.trim()
     return trimmed ? trimmed : undefined
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Branches -- DRAP licence tracking (Wave 8, U-062/D18/R7). Small, independent surface (its own
+  // GET/PATCH /settings/branches routes, its own permission `settings.branch`) bolted onto this
+  // page rather than a new route -- most tenants have exactly one branch (tenant.ts's own "every
+  // tenant starts with one branch, adding a second is data entry" convention), so a full
+  // route/nav-entry for this is more plumbing than the surface deserves; it belongs wherever an
+  // admin already looks for "business identity" settings, which is here.
+  // ---------------------------------------------------------------------------------------------
+  let branches: BranchRow[] = []
+  let branchesLoading = true
+  let branchesError = ''
+
+  async function loadBranches(): Promise<void> {
+    branchesLoading = true
+    branchesError = ''
+    try {
+      branches = await branchesApi.listBranches()
+    } catch (err) {
+      branchesError = errorMessage(err, 'Could not load branches.')
+    } finally {
+      branchesLoading = false
+    }
+  }
+
+  let branchEditOpen = false
+  let branchEditTarget: BranchRow | null = null
+  let branchEditForm = { name: '', addressLine1: '', addressLine2: '', city: '', drugSaleLicenceNo: '', drugLicenceExpiryDate: '' }
+  let branchEditSubmitting = false
+
+  function openBranchEdit(branch: BranchRow): void {
+    branchEditTarget = branch
+    branchEditForm = {
+      name: branch.name,
+      addressLine1: branch.addressLine1 ?? '',
+      addressLine2: branch.addressLine2 ?? '',
+      city: branch.city ?? '',
+      drugSaleLicenceNo: branch.drugSaleLicenceNo ?? '',
+      drugLicenceExpiryDate: branch.drugLicenceExpiryDate ?? '',
+    }
+    branchEditOpen = true
+  }
+  function closeBranchEdit(): void {
+    branchEditOpen = false
+    branchEditTarget = null
+  }
+
+  /** `''` -> `null` (clears the field server-side); non-empty -> the trimmed value. Mirrors the
+   *  `toOptional` pattern above but for a PATCH that accepts explicit `null`, not just omission. */
+  function toNullable(value: string): string | null {
+    const trimmed = value.trim()
+    return trimmed === '' ? null : trimmed
+  }
+
+  /** Mirrors notification.service.ts's own 60-day `LICENCE_EXPIRY_WARNING_DAYS` window (a
+   *  defensible default that task picked, not a DRAP-mandated number -- see that file's header
+   *  comment) purely for this table's own visual badge; the actual alert is server-computed and
+   *  surfaced via NotificationsPage, this is just "don't make the admin open a modal to notice". */
+  function licenceTone(dateStr: string | null): 'danger' | 'warning' | 'neutral' {
+    if (!dateStr) return 'neutral'
+    const days = Math.round((new Date(`${dateStr}T00:00:00`).getTime() - new Date(`${todayYmd()}T00:00:00`).getTime()) / 86_400_000)
+    if (days < 0) return 'danger'
+    if (days <= 60) return 'warning'
+    return 'neutral'
+  }
+
+  async function submitBranchEdit(): Promise<void> {
+    if (!branchEditTarget) return
+    branchEditSubmitting = true
+    try {
+      const input: UpdateBranchInput = {
+        name: branchEditForm.name.trim() || undefined,
+        addressLine1: toNullable(branchEditForm.addressLine1),
+        addressLine2: toNullable(branchEditForm.addressLine2),
+        city: toNullable(branchEditForm.city),
+        drugSaleLicenceNo: toNullable(branchEditForm.drugSaleLicenceNo),
+        drugLicenceExpiryDate: toNullable(branchEditForm.drugLicenceExpiryDate),
+      }
+      const updated = await branchesApi.updateBranch(branchEditTarget.branchId, input)
+      branches = branches.map((b) => (b.branchId === updated.branchId ? updated : b))
+      toast.success('Branch updated.')
+      closeBranchEdit()
+    } catch (err) {
+      toastApiError(err, 'Could not update this branch.')
+    } finally {
+      branchEditSubmitting = false
+    }
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -108,6 +198,7 @@
 
   onMount(() => {
     void loadLists()
+    void loadBranches()
   })
 
   // ---------------------------------------------------------------------------------------------
@@ -354,6 +445,73 @@
       </button>
     </div>
   {/if}
+
+  <!-- Branches -- DRAP licence tracking (Wave 8, U-062/D18/R7) -->
+  <div class="card rounded-xl p-0 overflow-hidden">
+    <div class="px-4 py-3 border-b border-surface-200 dark:border-surface-700 flex items-center gap-2">
+      <Icon icon={Icons.shield} className="w-4 h-4 text-secondary-400" />
+      <h2 class="text-sm font-semibold text-secondary-900 dark:text-white">Branches &middot; DRAP licence</h2>
+    </div>
+    <p class="px-4 pt-3 text-xs text-secondary-500 dark:text-secondary-400">
+      Address and drug-sale licence details per branch. Full DRAP compliance scope is still pending a licensed pharmacist/regulatory
+      consultant's sign-off -- this is record-keeping the system can hold today, not a claim of legal compliance.
+    </p>
+    {#if branchesError}
+      <div class="mx-4 mt-3 rounded-xl border border-danger-200 dark:border-danger-800 bg-danger-50 dark:bg-danger-950 text-danger-700 dark:text-danger-300 p-3 text-sm flex items-center justify-between gap-4">
+        <span>{branchesError}</span>
+        <button type="button" class="px-3 py-1.5 text-xs font-medium bg-danger-600 text-white hover:opacity-90 rounded-lg transition-opacity flex-shrink-0" on:click={loadBranches}>
+          Retry
+        </button>
+      </div>
+    {/if}
+    {#if branchesLoading}
+      <p class="p-6 text-center text-sm text-secondary-500">Loading…</p>
+    {:else if branches.length === 0}
+      <p class="p-6 text-center text-sm text-secondary-500">No branches found.</p>
+    {:else}
+      <div class="overflow-x-auto scrollbar-thin">
+        <table class="w-full">
+          <thead class="bg-surface-50 dark:bg-surface-900/30">
+            <tr>
+              <th class={headClass}>Branch</th>
+              <th class={headClass}>Address</th>
+              <th class={headClass}>Licence No.</th>
+              <th class={headClass}>Licence expiry</th>
+              <th class={`${headClass} w-10`}></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-surface-200 dark:divide-surface-700">
+            {#each branches as branch (branch.branchId)}
+              <tr>
+                <td class={cellClass}>
+                  <p class="font-medium text-secondary-900 dark:text-white">{branch.name}</p>
+                  <p class="text-xs text-secondary-400 font-mono">{branch.code}{branch.isDefault ? ' -- default' : ''}</p>
+                </td>
+                <td class={cellClass}>{[branch.addressLine1, branch.addressLine2, branch.city].filter(Boolean).join(', ') || '—'}</td>
+                <td class={cellClass}>{branch.drugSaleLicenceNo ?? '—'}</td>
+                <td class={cellClass}>
+                  {#if branch.drugLicenceExpiryDate}
+                    <Badge tone={licenceTone(branch.drugLicenceExpiryDate)}>{formatDate(branch.drugLicenceExpiryDate)}</Badge>
+                  {:else}
+                    <span class="text-secondary-400">—</span>
+                  {/if}
+                </td>
+                <td class={cellClass}>
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 text-xs font-medium rounded-lg border border-surface-200 dark:border-surface-700 text-secondary-700 dark:text-secondary-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+                    on:click={() => openBranchEdit(branch)}
+                  >
+                    Edit
+                  </button>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+  </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
     <!-- Left pane: option lists -->
@@ -630,6 +788,65 @@
       disabled={editSubmitting}
     >
       {editSubmitting ? 'Saving…' : 'Save changes'}
+    </button>
+  </svelte:fragment>
+</Modal>
+
+<!-- Edit branch (Wave 8, U-062/D18/R7) -->
+<Modal open={branchEditOpen} title={branchEditTarget ? `Edit ${branchEditTarget.name}` : 'Edit branch'} widthClass="max-w-2xl" onClose={closeBranchEdit}>
+  {#if branchEditTarget}
+    <form id="edit-branch-form" on:submit|preventDefault={submitBranchEdit}>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="sm:col-span-2">
+          <label class={labelClass} for="edit-branch-name">Branch name<span class="text-danger-500"> *</span></label>
+          <input id="edit-branch-name" bind:value={branchEditForm.name} class={inputClass} maxlength="160" />
+        </div>
+        <div>
+          <label class={labelClass} for="edit-branch-addr1">Address line 1</label>
+          <input id="edit-branch-addr1" bind:value={branchEditForm.addressLine1} class={inputClass} placeholder="Optional" maxlength="255" />
+        </div>
+        <div>
+          <label class={labelClass} for="edit-branch-addr2">Address line 2</label>
+          <input id="edit-branch-addr2" bind:value={branchEditForm.addressLine2} class={inputClass} placeholder="Optional" maxlength="255" />
+        </div>
+        <div>
+          <label class={labelClass} for="edit-branch-city">City</label>
+          <input id="edit-branch-city" bind:value={branchEditForm.city} class={inputClass} placeholder="Optional" maxlength="80" />
+        </div>
+        <div></div>
+        <div>
+          <label class={labelClass} for="edit-branch-licence-no">Drug sale licence no.</label>
+          <input id="edit-branch-licence-no" bind:value={branchEditForm.drugSaleLicenceNo} class={inputClass} placeholder="Optional" maxlength="64" />
+        </div>
+        <div>
+          <label class={labelClass} for="edit-branch-licence-expiry">Drug sale licence expiry</label>
+          <input id="edit-branch-licence-expiry" type="date" bind:value={branchEditForm.drugLicenceExpiryDate} class={inputClass} />
+        </div>
+      </div>
+      <p class="mt-4 text-xs text-secondary-400">
+        Whether DRAP requires a drug-sale licence to be recorded for a retail dispensing pharmacy at all is still open pending a
+        pharmacist/regulatory consultant's sign-off -- these fields exist so the record can be kept once that's confirmed; leaving
+        them blank has no other effect.
+      </p>
+    </form>
+  {/if}
+
+  <svelte:fragment slot="footer">
+    <button
+      type="button"
+      class="px-4 py-2.5 rounded-xl text-sm font-medium bg-surface-100 dark:bg-surface-800 text-secondary-700 dark:text-secondary-300 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
+      on:click={closeBranchEdit}
+      disabled={branchEditSubmitting}
+    >
+      Cancel
+    </button>
+    <button
+      type="submit"
+      form="edit-branch-form"
+      class="px-4 py-2.5 rounded-xl text-sm font-medium bg-theme-primary text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+      disabled={branchEditSubmitting || !branchEditForm.name.trim()}
+    >
+      {branchEditSubmitting ? 'Saving…' : 'Save changes'}
     </button>
   </svelte:fragment>
 </Modal>

@@ -47,6 +47,8 @@
     AgingBucketKey,
     LowStockFilters,
     LowStockRow,
+    ControlledDrugRegisterFilters,
+    ControlledDrugRegisterRow,
   } from '../../api/reporting'
 
   const inputClass = 'w-full px-4 py-2.5 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm text-secondary-900 dark:text-white placeholder-secondary-400 focus:outline-none focus:ring-2 focus:ring-theme-primary/20 focus:border-theme-primary transition-all'
@@ -200,7 +202,7 @@
             ] as const)
           : null
 
-  $: showDateRange = selected?.reportId === 'sales-summary' || selected?.reportId === 'purchase-summary'
+  $: showDateRange = selected?.reportId === 'sales-summary' || selected?.reportId === 'purchase-summary' || selected?.reportId === 'controlled-drug-register'
   $: showGroupBy = groupByOptions !== null
   $: showCustomer = selected?.reportId === 'sales-summary' || selected?.reportId === 'ar-aging'
   $: showSupplier = selected?.reportId === 'purchase-summary' || selected?.reportId === 'ap-aging'
@@ -209,6 +211,7 @@
     selected?.reportId === 'expiry-report' ||
     selected?.reportId === 'reorder-level' ||
     selected?.reportId === 'low-stock' ||
+    selected?.reportId === 'controlled-drug-register' ||
     (itemFilterableByGroupBy && groupBy === 'item')
   $: showAsOfDate = selected?.reportId === 'ap-aging' || selected?.reportId === 'ar-aging'
   $: showThreshold = selected?.reportId === 'low-stock'
@@ -289,6 +292,13 @@
     if (thresholdQty.trim()) f.thresholdQty = thresholdQty.trim()
     return f
   }
+  function controlledDrugRegisterFilters(): ControlledDrugRegisterFilters {
+    const f: ControlledDrugRegisterFilters = {}
+    if (dateFrom) f.dateFrom = dateFrom
+    if (dateTo) f.dateTo = dateTo
+    if (itemId !== '') f.itemId = itemId
+    return f
+  }
 
   async function runSelected(resetOffset: boolean): Promise<void> {
     if (!selected) return
@@ -322,6 +332,9 @@
           break
         case 'low-stock':
           res = (await reportingApi.runReport('low-stock', { filters: lowStockFilters(), ...page })) as unknown as AnyRunReportResult
+          break
+        case 'controlled-drug-register':
+          res = (await reportingApi.runReport('controlled-drug-register', { filters: controlledDrugRegisterFilters(), ...page })) as unknown as AnyRunReportResult
           break
         default:
           return
@@ -376,6 +389,9 @@
   }
   function lowStockRow(row: AnyReportRow): LowStockRow {
     return row as LowStockRow
+  }
+  function controlledDrugRow(row: AnyReportRow): ControlledDrugRegisterRow {
+    return row as ControlledDrugRegisterRow
   }
 
   const EXPIRY_BUCKET_LABELS: Record<ExpiryBucketKey, string> = {
@@ -683,6 +699,14 @@
                   {:else if selected.reportId === 'low-stock'}
                     <th class={headClass}>Item</th>
                     <th class={`${headClass} text-right`}>Qty On Hand</th>
+                  {:else if selected.reportId === 'controlled-drug-register'}
+                    <th class={headClass}>Date</th>
+                    <th class={headClass}>Invoice</th>
+                    <th class={headClass}>Item</th>
+                    <th class={headClass}>Batch</th>
+                    <th class={`${headClass} text-right`}>Qty</th>
+                    <th class={headClass}>Dispensing note</th>
+                    <th class={headClass}>Dispensed by</th>
                   {/if}
                 </tr>
               </thead>
@@ -753,6 +777,19 @@
                     <tr class="hover:bg-surface-50 dark:hover:bg-surface-800/40 transition-colors">
                       <td class={`${cellClass} font-medium text-secondary-900 dark:text-white`}>{r.label}</td>
                       <td class={`${cellClass} text-right`}>{formatQty(r.qtyOnHand)}</td>
+                    </tr>
+                  {/each}
+                {:else if selected.reportId === 'controlled-drug-register'}
+                  {#each rows as row (controlledDrugRow(row).key)}
+                    {@const r = controlledDrugRow(row)}
+                    <tr class="hover:bg-surface-50 dark:hover:bg-surface-800/40 transition-colors">
+                      <td class={cellClass}>{formatDate(r.postingDate)}</td>
+                      <td class={`${cellClass} font-mono`}>{r.docNumber}</td>
+                      <td class={`${cellClass} font-medium text-secondary-900 dark:text-white`}>{r.itemName}</td>
+                      <td class={cellClass}>{r.batchNo ?? '—'}</td>
+                      <td class={`${cellClass} text-right`}>{formatQty(r.qty)}</td>
+                      <td class={cellClass}>{r.dispensingNote ?? '—'}</td>
+                      <td class={cellClass}>{r.dispensedByName ?? '—'}</td>
                     </tr>
                   {/each}
                 {/if}

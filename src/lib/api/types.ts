@@ -875,6 +875,10 @@ export interface SaleLineInput {
   itemId: number;
   qty: string;
   unitSalePrice?: string;
+  /** U-062/D18/R7 (Wave 8): one free-text field, sent only when the cashier actually typed
+   *  something -- POSCheckoutPage.svelte shows this input for any cart line whose item is
+   *  `isControlledDrug`, but the backend accepts (and never requires) it on any line. */
+  dispensingNote?: string;
 }
 
 export interface SalePaymentInput {
@@ -923,6 +927,8 @@ export interface SaleInvoiceLineRow {
   lineCostAmount: string;
   lineMarginAmount: string;
   expiryAtSale: string | null;
+  /** U-062/D18/R7 (Wave 8) -- null unless the cashier entered one for this line. */
+  dispensingNote: string | null;
 }
 
 export interface SaleInvoicePaymentRow {
