@@ -1,6 +1,8 @@
 <script lang="ts">
   import { locale } from '../stores/locale'
   import AdminShell from './layout/AdminShell.svelte'
+  import PageLoadError from './common/PageLoadError.svelte'
+  import PageLoader from './common/PageLoader.svelte'
   import DashboardPage from './dashboard/DashboardPage.svelte'
   import AnalyticsDashboardPage from './dashboard/AnalyticsDashboardPage.svelte'
   import EcommerceDashboardPage from './dashboard/EcommerceDashboardPage.svelte'
@@ -34,33 +36,6 @@
   import AccountSettingsPage from './pages/AccountSettingsPage.svelte'
   import FaqPage from './pages/FaqPage.svelte'
   import NotFoundPage from './pages/NotFoundPage.svelte'
-  import PharmacyLoginPage from './pharmacy/PharmacyLoginPage.svelte'
-  import PharmacyDashboardPage from './pharmacy/PharmacyDashboardPage.svelte'
-  import InventoryOverviewPage from './pharmacy/InventoryOverviewPage.svelte'
-  import ExpiryDashboardPage from './pharmacy/ExpiryDashboardPage.svelte'
-  import StockAdjustmentsPage from './pharmacy/StockAdjustmentsPage.svelte'
-  import StockTakesPage from './pharmacy/StockTakesPage.svelte'
-  import ItemsPage from './pharmacy/ItemsPage.svelte'
-  import SuppliersPage from './pharmacy/SuppliersPage.svelte'
-  import PurchaseInvoicesPage from './pharmacy/PurchaseInvoicesPage.svelte'
-  import PurchaseOrdersPage from './pharmacy/PurchaseOrdersPage.svelte'
-  import PurchaseReturnsPage from './pharmacy/PurchaseReturnsPage.svelte'
-  import CustomersPage from './pharmacy/CustomersPage.svelte'
-  import SaleInvoicesPage from './pharmacy/SaleInvoicesPage.svelte'
-  import SaleReturnsPage from './pharmacy/SaleReturnsPage.svelte'
-  import POSCheckoutPage from './pharmacy/POSCheckoutPage.svelte'
-  import SettingsOptionsPage from './pharmacy/SettingsOptionsPage.svelte'
-  import UsersRolesPage from './pharmacy/UsersRolesPage.svelte'
-  import ChartOfAccountsPage from './pharmacy/ChartOfAccountsPage.svelte'
-  import JournalEntriesPage from './pharmacy/JournalEntriesPage.svelte'
-  import CashBankAccountsPage from './pharmacy/CashBankAccountsPage.svelte'
-  import PaymentsPage from './pharmacy/PaymentsPage.svelte'
-  import PaymentMethodsPage from './pharmacy/PaymentMethodsPage.svelte'
-  import ExpensesPage from './pharmacy/ExpensesPage.svelte'
-  import ExpenseCategoriesPage from './pharmacy/ExpenseCategoriesPage.svelte'
-  import ReportsPage from './pharmacy/ReportsPage.svelte'
-  import AuditLogPage from './pharmacy/AuditLogPage.svelte'
-  import NotificationsPage from './pharmacy/NotificationsPage.svelte'
 
   export let path = '/dashboard'
   let dashboardVariant: 'overview' | 'analytics' | 'ecommerce' | 'crm' = 'overview'
@@ -76,66 +51,42 @@
   $: authKind = path.endsWith('register') ? 'register' : path.endsWith('forgot-password') ? 'forgot' : 'login'
   $: authCard = path.startsWith('/auth-card/')
   // /charts -> /charts/line is now handled by src/routes/charts/+page.ts's load() redirect,
-  // which resolves before this component (and its >1MB chunk of every page in the app) needs
-  // to load at all -- see that file's comment for why the previous onMount-based redirect here
-  // stopped reliably beating a 5s test assertion once Wave 5 grew this chunk further.
+  // which resolves before this component (and its own multi-hundred-KB chunk of every demo page
+  // in the app) needs to load at all -- see that file's comment for why the previous onMount-based
+  // redirect here stopped reliably beating a 5s test assertion once Wave 5 grew this chunk further.
+
+  // Wave 9: the pharmacy admin (~30 pages) is lazy-loaded as its OWN chunk (PharmacyRouteView.svelte)
+  // -- mirrors the exact `onMount`-adjacent "dynamic import() once, cache the resolved component"
+  // pattern RoutePage.svelte already uses one level up to lazy-load THIS file. A reactive block
+  // (not `onMount`, which only ever fires once per component instance) so navigating INTO
+  // `/pharmacy/*` triggers the import the first time `path` actually needs it, however this
+  // component instance got here -- a fresh page load straight into a pharmacy route, or a
+  // client-side navigation from a demo route. Once loaded, `PharmacyRouteView` stays cached for
+  // the rest of the session (further pharmacy navigation just changes the `path` prop passed to
+  // the already-resolved component) -- the guard below only prevents re-triggering the import
+  // promise chain redundantly; `import()` itself is already cached by the module loader regardless.
+  let PharmacyRouteView: typeof import('./PharmacyRouteView.svelte')['default'] | null = null
+  let pharmacyLoadError: Error | null = null
+  $: if (path.startsWith('/pharmacy') && !PharmacyRouteView && !pharmacyLoadError) {
+    void import('./PharmacyRouteView.svelte')
+      .then((module) => {
+        PharmacyRouteView = module.default
+      })
+      .catch((error: unknown) => {
+        pharmacyLoadError = error instanceof Error ? error : new Error('Unable to load pharmacy module')
+      })
+  }
 </script>
 
 {#key $locale}
-{#if path === '/pharmacy/login'}
-  <PharmacyLoginPage />
-{:else if path === '/pharmacy'}
-  <AdminShell showCustomizer={false}><PharmacyDashboardPage /></AdminShell>
-{:else if path === '/pharmacy/inventory'}
-  <AdminShell showCustomizer={false}><InventoryOverviewPage /></AdminShell>
-{:else if path === '/pharmacy/inventory/adjustments'}
-  <AdminShell showCustomizer={false}><StockAdjustmentsPage /></AdminShell>
-{:else if path === '/pharmacy/inventory/stock-takes'}
-  <AdminShell showCustomizer={false}><StockTakesPage /></AdminShell>
-{:else if path === '/pharmacy/inventory/items'}
-  <AdminShell showCustomizer={false}><ItemsPage /></AdminShell>
-{:else if path === '/pharmacy/inventory/expiry'}
-  <AdminShell showCustomizer={false}><ExpiryDashboardPage /></AdminShell>
-{:else if path === '/pharmacy/purchasing/suppliers'}
-  <AdminShell showCustomizer={false}><SuppliersPage /></AdminShell>
-{:else if path === '/pharmacy/purchasing/invoices'}
-  <AdminShell showCustomizer={false}><PurchaseInvoicesPage /></AdminShell>
-{:else if path === '/pharmacy/purchasing/orders'}
-  <AdminShell showCustomizer={false}><PurchaseOrdersPage /></AdminShell>
-{:else if path === '/pharmacy/purchasing/returns'}
-  <AdminShell showCustomizer={false}><PurchaseReturnsPage /></AdminShell>
-{:else if path === '/pharmacy/sales/customers'}
-  <AdminShell showCustomizer={false}><CustomersPage /></AdminShell>
-{:else if path === '/pharmacy/sales/invoices'}
-  <AdminShell showCustomizer={false}><SaleInvoicesPage /></AdminShell>
-{:else if path === '/pharmacy/sales/returns'}
-  <AdminShell showCustomizer={false}><SaleReturnsPage /></AdminShell>
-{:else if path === '/pharmacy/sales/pos'}
-  <AdminShell showCustomizer={false}><POSCheckoutPage /></AdminShell>
-{:else if path === '/pharmacy/settings/options'}
-  <AdminShell showCustomizer={false}><SettingsOptionsPage /></AdminShell>
-{:else if path === '/pharmacy/settings/users'}
-  <AdminShell showCustomizer={false}><UsersRolesPage /></AdminShell>
-{:else if path === '/pharmacy/accounting/chart-of-accounts'}
-  <AdminShell showCustomizer={false}><ChartOfAccountsPage /></AdminShell>
-{:else if path === '/pharmacy/accounting/vouchers'}
-  <AdminShell showCustomizer={false}><JournalEntriesPage /></AdminShell>
-{:else if path === '/pharmacy/accounting/cash-bank'}
-  <AdminShell showCustomizer={false}><CashBankAccountsPage /></AdminShell>
-{:else if path === '/pharmacy/payments/transactions'}
-  <AdminShell showCustomizer={false}><PaymentsPage /></AdminShell>
-{:else if path === '/pharmacy/payments/methods'}
-  <AdminShell showCustomizer={false}><PaymentMethodsPage /></AdminShell>
-{:else if path === '/pharmacy/expenses/transactions'}
-  <AdminShell showCustomizer={false}><ExpensesPage /></AdminShell>
-{:else if path === '/pharmacy/expenses/categories'}
-  <AdminShell showCustomizer={false}><ExpenseCategoriesPage /></AdminShell>
-{:else if path === '/pharmacy/reports'}
-  <AdminShell showCustomizer={false}><ReportsPage /></AdminShell>
-{:else if path === '/pharmacy/audit'}
-  <AdminShell showCustomizer={false}><AuditLogPage /></AdminShell>
-{:else if path === '/pharmacy/notifications'}
-  <AdminShell showCustomizer={false}><NotificationsPage /></AdminShell>
+{#if path.startsWith('/pharmacy')}
+  {#if pharmacyLoadError}
+    <PageLoadError />
+  {:else if PharmacyRouteView}
+    <svelte:component this={PharmacyRouteView} {path} />
+  {:else}
+    <PageLoader />
+  {/if}
 {:else if exactRoutes.has(path) && (path.startsWith('/auth/') || path.startsWith('/auth-card/'))}
   <AuthPage kind={authKind} card={authCard} />
 {:else if path === '/app/chat/voice-call' || path === '/app/chat/video-call'}
@@ -202,5 +153,3 @@
   <NotFoundPage />
 {/if}
 {/key}
-
-
