@@ -49,7 +49,7 @@ the design system; the actual pharmacy screens live under `src/lib/components/ph
 `src/routes/pharmacy/`, wired to the real NestJS API via `src/lib/api/`.
 
 ```bash
-cp .env.example .env   # set PUBLIC_API_BASE_URL if the backend isn't on localhost:3000
+cp .env.example .env   # set PUBLIC_API_BASE_URL if the backend isn't on localhost:3001
 npm install
 npm run dev            # then open http://localhost:5173/pharmacy/login
 ```
