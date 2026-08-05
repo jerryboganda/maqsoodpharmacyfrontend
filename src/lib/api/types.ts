@@ -54,8 +54,261 @@ export interface RoleRow {
   roleId: number;
   roleKey: string;
   displayName: string;
+  displayNameUr: string | null;
   description: string | null;
   isSystem: boolean;
+  isEnabled: boolean;
+}
+
+/** POST /roles (Wave 10b, sys_admin only). `clonedFromRoleKey` copies the source role's CURRENT
+ *  grants onto the new role as a one-time starting point, not a live link. */
+export interface CreateRoleInput {
+  key: string;
+  name: string;
+  nameUr?: string;
+  description: string;
+  clonedFromRoleKey?: string;
+}
+/** PATCH /roles/:roleKey. `isEnabled: false` is the real "remove a custom role" mechanism (P1.3
+ *  -- disable, never delete); rejected with `ROLE.SYSTEM_ROLE_PROTECTED` against a seeded system
+ *  role (isSystem: true). */
+export interface UpdateRoleInput {
+  name?: string;
+  nameUr?: string | null;
+  description?: string;
+  isEnabled?: boolean;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Identity -- Wave 10e/10f role_scope / role_limit (R-007 CRITICAL)
+// ---------------------------------------------------------------------------------------------
+export type RoleScopeType = "warehouse" | "cash_bank_account" | "price_type" | "supplier_category" | "voucher_category";
+export interface RoleScopeEntry {
+  scopeType: RoleScopeType;
+  scopeValues: number[];
+}
+/** GET/PUT /roles/:roleKey/scopes -- a bare array, one entry per scopeType that has ANY row (a
+ *  scopeType absent from this array means the role is unrestricted for it). PUT replaces only
+ *  the SUPPLIED scopeTypes' whole value set; an omitted scopeType is left untouched. */
+export type RoleScopeList = RoleScopeEntry[];
+
+export const ROLE_LIMIT_KEYS = ["max_txn_value", "max_qty", "max_line_disc_pct", "max_inv_flat_disc", "max_price_delta_pct"] as const;
+export type RoleLimitKey = (typeof ROLE_LIMIT_KEYS)[number];
+export interface RoleLimitEntry {
+  limitKey: RoleLimitKey;
+  /** Decimal string (Rule M) -- a ceiling, not a plain number. */
+  limitValue: string;
+}
+/** GET/PUT /roles/:roleKey/limits -- a bare array, one entry per limitKey that has a configured
+ *  row. PUT is a full replace of the role's entire limit set (unlike scopes' per-scopeType
+ *  replace). An actor's EFFECTIVE limit for a key is the MINIMUM across every one of their roles
+ *  that has a row for it -- a role with no row imposes no restriction of its own. */
+export type RoleLimitList = RoleLimitEntry[];
+
+// ---------------------------------------------------------------------------------------------
+// Platform module (Wave 10a) -- health/ready probes + the D1 feature-capability register
+// ---------------------------------------------------------------------------------------------
+export interface PlatformHealth {
+  status: "ok";
+  version: string;
+  uptimeSeconds: number;
+}
+export interface PlatformReady {
+  db: boolean;
+  migrations: boolean;
+  requiredBindingsSatisfied: boolean;
+  /** Always `false` -- FBR fiscalization does not exist in this codebase (task #28, blocked
+   *  pending owner/tax-adviser input). Never a guess. */
+  fbrReachable: boolean;
+}
+export type FeatureCapabilityStatus = "in_scope" | "deferred" | "excluded" | "replaced";
+export interface FeatureCapabilityRow {
+  code: string;
+  name: string;
+  module: string | null;
+  status: FeatureCapabilityStatus;
+  legacyTableCount: number | null;
+  legacyEvidence: string | null;
+  decisionRef: string | null;
+  decidedOn: string | null;
+  rationale: string | null;
+}
+/** PATCH /admin/feature-capabilities/:code -- "record an owner decision on a deferred vertical".
+ *  `rationale` must be at least 20 characters (server-enforced) -- a one-word status flip is not
+ *  an audit trail. */
+export interface UpdateFeatureCapabilityInput {
+  status: FeatureCapabilityStatus;
+  rationale: string;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Catalog -- Wave 10c item-visibility curation (R1, /admin/visibility/*)
+// ---------------------------------------------------------------------------------------------
+export type VisibilityScope = "pos" | "purchase" | "reports" | "stock_list";
+export type VisibilitySource = "default" | "manual" | "bulk" | "preset";
+export interface VisibilityWorkbenchRow {
+  itemId: number;
+  name: string;
+  scope: VisibilityScope;
+  isVisible: boolean;
+  source: VisibilitySource;
+  changedAt: string;
+  changedBy: number | null;
+  bulkOperationId: number | null;
+}
+export interface VisibilityWorkbenchResult {
+  data: VisibilityWorkbenchRow[];
+  meta: { hiddenCount: number; visibleCount: number; offset: number; limit: number };
+}
+export interface EffectiveVisibilityResult {
+  isVisible: boolean;
+  decidedBy: string;
+  explanation: string;
+}
+/** PUT /items/:itemId/visibility response -- current visibility for every one of the 4 scopes,
+ *  not just the ones this call touched. */
+export interface ItemVisibilityResult {
+  itemId: number;
+  scopes: { scope: VisibilityScope; isVisible: boolean; source: VisibilitySource }[];
+}
+export interface SetItemVisibilityInput {
+  scopes: { scope: VisibilityScope; isVisible: boolean }[];
+  reason?: string;
+}
+/** POST /admin/visibility/bulk. Selection is `itemIds[]` (explicit) OR `q` (name/code substring)
+ *  -- exactly one must be supplied. `dryRun: true` returns the live affected count and writes
+ *  nothing (no `bulkOperationId` in that response). */
+export interface BulkVisibilityInput {
+  itemIds?: number[];
+  q?: string;
+  scopes: VisibilityScope[];
+  isVisible: boolean;
+  /** Minimum 10 characters (server-enforced) -- a bulk action affecting many items needs a real
+   *  explanation. */
+  reason: string;
+  dryRun?: boolean;
+}
+export interface BulkVisibilityResult {
+  affectedCount: number;
+  bulkOperationId?: number;
+}
+export interface UndoBulkVisibilityResult {
+  bulkOperationId: number;
+  reversedCount: number;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Accounting -- Wave 10d /cash-bank/reconciliations (R2.3)
+// ---------------------------------------------------------------------------------------------
+export interface CashBankReconciliationRow {
+  reconciliationId: number;
+  cashBankAccountId: number;
+  statementDate: string;
+  statementClosingBalance: string;
+  status: "open" | "completed";
+  differenceAmount: string | null;
+  reason: string | null;
+  completedAt: string | null;
+  completedBy: number | null;
+}
+export interface ReconciliationCandidateLine {
+  journalLineId: number;
+  journalEntryId: number;
+  entryNo: string;
+  entryDate: string;
+  description: string;
+  debit: string;
+  credit: string;
+}
+export interface StartReconciliationInput {
+  cashBankAccountId: number;
+  statementDate: string;
+  statementClosingBalance: string;
+}
+/** POST /cash-bank/reconciliations -- there is no separate GET list/detail endpoint; this
+ *  response (header + the full candidate-line list) is the whole workbench for one reconciliation
+ *  attempt, built and completed in a single UI flow. */
+export interface StartReconciliationResult {
+  reconciliation: CashBankReconciliationRow;
+  unreconciledLines: ReconciliationCandidateLine[];
+}
+export interface CompleteReconciliationInput {
+  matchedLineIds: number[];
+  reason?: string;
+}
+/** POST /cash-bank/reconciliations/:id/complete only ever succeeds when the matched lines' net
+ *  effect exactly equals the statement closing balance -- a non-zero difference is a 422
+ *  (RECON.UNEXPLAINED_DIFFERENCE), never an auto-posted adjustment (no invented GL rule). */
+export interface CompleteReconciliationResult {
+  reconciliation: CashBankReconciliationRow;
+  journalEntry: null;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Payments -- Wave 10g cashier shifts (R2.4, /cashier-shifts/*)
+// ---------------------------------------------------------------------------------------------
+export type CashierShiftStatus = "open" | "closed" | "approved";
+export interface CashierShiftRow {
+  cashierShiftId: number;
+  docNumber: string;
+  userId: number;
+  cashBankAccountId: number;
+  openedAt: string;
+  closedAt: string | null;
+  openingFloatAmount: string;
+  expectedCashAmount: string | null;
+  countedCashAmount: string | null;
+  varianceAmount: string | null;
+  varianceReason: string | null;
+  status: CashierShiftStatus;
+  approvedBy: number | null;
+  approvedAt: string | null;
+}
+export interface CashierShiftListResult {
+  cashierShifts: CashierShiftRow[];
+  offset: number;
+  limit: number;
+}
+export interface OpenCashierShiftInput {
+  cashBankAccountId: number;
+  openingFloatAmount: string;
+}
+export interface DenominationCountLine {
+  denominationAmount: string;
+  denominationCount: number;
+}
+export interface CountCashierShiftInput {
+  counts: DenominationCountLine[];
+}
+/** POST /cashier-shifts/:id/count -- the blind count: `expectedCash` is computed and returned
+ *  HERE, alongside `countedTotal`/`variance`, the first and only moment it's ever exposed. */
+export interface CountCashierShiftResult {
+  countedTotal: string;
+  expectedCash: string;
+  variance: string;
+}
+export interface CloseCashierShiftInput {
+  varianceReason?: string;
+}
+/** `journalEntry` is deliberately never present -- this wave never posts a GL entry for the
+ *  counted variance (RS-3: no accountant-signed rule + no gl_account_binding table exists for
+ *  the 'cashier_variance' account it would need). */
+export interface CloseCashierShiftResult {
+  cashierShift: CashierShiftRow;
+}
+export interface ApproveCashierShiftInput {
+  reason?: string;
+}
+export interface CashierShiftZReportResult {
+  shift: CashierShiftRow;
+  salesByMethod: { paymentMethodId: number; total: string }[];
+  returns: string;
+  expensesPaid: string;
+  openingFloat: string;
+  expectedCash: string;
+  countedCash: string | null;
+  variance: string | null;
+  invoiceCount: number;
 }
 
 export interface PermissionRow {

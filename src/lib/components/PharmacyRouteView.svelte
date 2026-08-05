@@ -31,16 +31,20 @@
   import POSCheckoutPage from './pharmacy/POSCheckoutPage.svelte'
   import SettingsOptionsPage from './pharmacy/SettingsOptionsPage.svelte'
   import UsersRolesPage from './pharmacy/UsersRolesPage.svelte'
+  import PlatformAdminPage from './pharmacy/PlatformAdminPage.svelte'
   import ChartOfAccountsPage from './pharmacy/ChartOfAccountsPage.svelte'
   import JournalEntriesPage from './pharmacy/JournalEntriesPage.svelte'
   import CashBankAccountsPage from './pharmacy/CashBankAccountsPage.svelte'
+  import CashBankReconciliationPage from './pharmacy/CashBankReconciliationPage.svelte'
   import PaymentsPage from './pharmacy/PaymentsPage.svelte'
   import PaymentMethodsPage from './pharmacy/PaymentMethodsPage.svelte'
+  import CashierShiftsPage from './pharmacy/CashierShiftsPage.svelte'
   import ExpensesPage from './pharmacy/ExpensesPage.svelte'
   import ExpenseCategoriesPage from './pharmacy/ExpenseCategoriesPage.svelte'
   import ReportsPage from './pharmacy/ReportsPage.svelte'
   import AuditLogPage from './pharmacy/AuditLogPage.svelte'
   import NotificationsPage from './pharmacy/NotificationsPage.svelte'
+  import VisibilityWorkbenchPage from './pharmacy/VisibilityWorkbenchPage.svelte'
   import NotFoundPage from './pages/NotFoundPage.svelte'
 
   export let path = '/pharmacy'
@@ -60,6 +64,8 @@
   <AdminShell showCustomizer={false}><ItemsPage /></AdminShell>
 {:else if path === '/pharmacy/inventory/expiry'}
   <AdminShell showCustomizer={false}><ExpiryDashboardPage /></AdminShell>
+{:else if path === '/pharmacy/inventory/visibility'}
+  <AdminShell showCustomizer={false}><VisibilityWorkbenchPage /></AdminShell>
 {:else if path === '/pharmacy/purchasing/suppliers'}
   <AdminShell showCustomizer={false}><SuppliersPage /></AdminShell>
 {:else if path === '/pharmacy/purchasing/invoices'}
@@ -76,16 +82,22 @@
   <AdminShell showCustomizer={false}><SaleReturnsPage /></AdminShell>
 {:else if path === '/pharmacy/sales/pos'}
   <AdminShell showCustomizer={false}><POSCheckoutPage /></AdminShell>
+{:else if path === '/pharmacy/sales/cashier-shifts'}
+  <AdminShell showCustomizer={false}><CashierShiftsPage /></AdminShell>
 {:else if path === '/pharmacy/settings/options'}
   <AdminShell showCustomizer={false}><SettingsOptionsPage /></AdminShell>
 {:else if path === '/pharmacy/settings/users'}
   <AdminShell showCustomizer={false}><UsersRolesPage /></AdminShell>
+{:else if path === '/pharmacy/settings/platform'}
+  <AdminShell showCustomizer={false}><PlatformAdminPage /></AdminShell>
 {:else if path === '/pharmacy/accounting/chart-of-accounts'}
   <AdminShell showCustomizer={false}><ChartOfAccountsPage /></AdminShell>
 {:else if path === '/pharmacy/accounting/vouchers'}
   <AdminShell showCustomizer={false}><JournalEntriesPage /></AdminShell>
 {:else if path === '/pharmacy/accounting/cash-bank'}
   <AdminShell showCustomizer={false}><CashBankAccountsPage /></AdminShell>
+{:else if path === '/pharmacy/accounting/reconciliations'}
+  <AdminShell showCustomizer={false}><CashBankReconciliationPage /></AdminShell>
 {:else if path === '/pharmacy/payments/transactions'}
   <AdminShell showCustomizer={false}><PaymentsPage /></AdminShell>
 {:else if path === '/pharmacy/payments/methods'}

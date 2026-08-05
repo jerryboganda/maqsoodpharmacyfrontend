@@ -8,5 +8,8 @@ export { purchasingApi } from "./purchasing";
 export { salesApi } from "./sales";
 export { paymentsApi } from "./payments";
 export { accountingApi } from "./accounting";
+export { platformApi } from "./platform";
+export { visibilityApi } from "./visibility";
+export { cashierShiftApi } from "./cashierShift";
 export * from "./format";
 export * from "./types";

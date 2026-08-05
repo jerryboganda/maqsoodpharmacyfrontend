@@ -7,6 +7,8 @@ import type {
   CashBankAccountListResult,
   CashBankAccountRow,
   CashBankBookResult,
+  CompleteReconciliationInput,
+  CompleteReconciliationResult,
   CreateCashBankAccountInput,
   CreateCashBankTransferInput,
   CreateCashBankTransferResult,
@@ -20,6 +22,8 @@ import type {
   JournalEntryListResult,
   ReverseJournalEntryInput,
   ReverseJournalEntryResult,
+  StartReconciliationInput,
+  StartReconciliationResult,
   VoucherCategoryOption,
 } from "./types";
 
@@ -77,4 +81,16 @@ export const accountingApi = {
     api.get<CashBankBookResult>("/cash-bank/book", params),
   createCashBankTransfer: (input: CreateCashBankTransferInput, idempotencyKey?: string) =>
     api.post<CreateCashBankTransferResult>("/cash-bank/transfers", input, idempotencyKey),
+
+  // ---- Cash & bank reconciliations (Wave 10d, R2.3) --------------------------------------
+  /** There is no separate GET list/detail endpoint -- this response (header + the full
+   *  candidate-line list) is the whole workbench for one reconciliation attempt, built and
+   *  completed in a single UI flow, not resumed later from a saved list. */
+  startReconciliation: (input: StartReconciliationInput, idempotencyKey?: string) =>
+    api.post<StartReconciliationResult>("/cash-bank/reconciliations", input, idempotencyKey),
+  /** Only ever succeeds when the matched lines' net effect exactly equals the statement closing
+   *  balance -- `422 RECON.UNEXPLAINED_DIFFERENCE` on any non-zero difference, with the exact
+   *  numbers in the error detail. Never auto-posts an adjustment (no invented GL rule). */
+  completeReconciliation: (reconciliationId: number, input: CompleteReconciliationInput, idempotencyKey?: string) =>
+    api.post<CompleteReconciliationResult>(`/cash-bank/reconciliations/${reconciliationId}/complete`, input, idempotencyKey),
 };

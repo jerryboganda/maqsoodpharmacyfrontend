@@ -7,16 +7,16 @@ export interface NavGroup { title: string; items: NavItem[] }
 export const pharmacyNavGroups: NavGroup[] = [
   { title: 'Pharmacy', items: [
     { path: '/pharmacy', label: 'Pharmacy Dashboard', icon: Icons.dashboard },
-    { path: '/pharmacy/inventory', label: 'Inventory', icon: Icons.package, children: [{ path: '/pharmacy/inventory', label: 'Stock & Lots' }, { path: '/pharmacy/inventory/adjustments', label: 'Adjustments' }, { path: '/pharmacy/inventory/stock-takes', label: 'Stock Takes' }, { path: '/pharmacy/inventory/items', label: 'Items' }, { path: '/pharmacy/inventory/expiry', label: 'Expiry Dashboard' }] },
+    { path: '/pharmacy/inventory', label: 'Inventory', icon: Icons.package, children: [{ path: '/pharmacy/inventory', label: 'Stock & Lots' }, { path: '/pharmacy/inventory/adjustments', label: 'Adjustments' }, { path: '/pharmacy/inventory/stock-takes', label: 'Stock Takes' }, { path: '/pharmacy/inventory/items', label: 'Items' }, { path: '/pharmacy/inventory/expiry', label: 'Expiry Dashboard' }, { path: '/pharmacy/inventory/visibility', label: 'Item Visibility' }] },
     { path: '/pharmacy/purchasing/suppliers', label: 'Purchasing', icon: Icons.truck, children: [{ path: '/pharmacy/purchasing/suppliers', label: 'Suppliers' }, { path: '/pharmacy/purchasing/invoices', label: 'Purchase Invoices' }, { path: '/pharmacy/purchasing/orders', label: 'Purchase Orders' }, { path: '/pharmacy/purchasing/returns', label: 'Purchase Returns' }] },
-    { path: '/pharmacy/sales/customers', label: 'Sales', icon: Icons.database, children: [{ path: '/pharmacy/sales/pos', label: 'POS Checkout' }, { path: '/pharmacy/sales/customers', label: 'Customers' }, { path: '/pharmacy/sales/invoices', label: 'Sale Invoices' }, { path: '/pharmacy/sales/returns', label: 'Sale Returns' }] },
-    { path: '/pharmacy/accounting/chart-of-accounts', label: 'Accounting', icon: Icons.wallet, children: [{ path: '/pharmacy/accounting/chart-of-accounts', label: 'Chart of Accounts' }, { path: '/pharmacy/accounting/vouchers', label: 'Journal Entries' }, { path: '/pharmacy/accounting/cash-bank', label: 'Cash & Bank' }] },
+    { path: '/pharmacy/sales/customers', label: 'Sales', icon: Icons.database, children: [{ path: '/pharmacy/sales/pos', label: 'POS Checkout' }, { path: '/pharmacy/sales/customers', label: 'Customers' }, { path: '/pharmacy/sales/invoices', label: 'Sale Invoices' }, { path: '/pharmacy/sales/returns', label: 'Sale Returns' }, { path: '/pharmacy/sales/cashier-shifts', label: 'Cashier Shifts' }] },
+    { path: '/pharmacy/accounting/chart-of-accounts', label: 'Accounting', icon: Icons.wallet, children: [{ path: '/pharmacy/accounting/chart-of-accounts', label: 'Chart of Accounts' }, { path: '/pharmacy/accounting/vouchers', label: 'Journal Entries' }, { path: '/pharmacy/accounting/cash-bank', label: 'Cash & Bank' }, { path: '/pharmacy/accounting/reconciliations', label: 'Reconciliations' }] },
     { path: '/pharmacy/payments/transactions', label: 'Payments', icon: Icons.creditCard, children: [{ path: '/pharmacy/payments/transactions', label: 'Payments' }, { path: '/pharmacy/payments/methods', label: 'Payment Methods' }] },
     { path: '/pharmacy/expenses/transactions', label: 'Expenses', icon: Icons.currencyDollar, children: [{ path: '/pharmacy/expenses/transactions', label: 'Expenses' }, { path: '/pharmacy/expenses/categories', label: 'Expense Categories' }] },
     { path: '/pharmacy/reports', label: 'Reports', icon: Icons.chartBar },
     { path: '/pharmacy/audit', label: 'Audit Log', icon: Icons.checklist },
     { path: '/pharmacy/notifications', label: 'Notifications', icon: Icons.bell },
-    { path: '/pharmacy/settings/options', label: 'Settings', icon: Icons.settings, children: [{ path: '/pharmacy/settings/options', label: 'Options' }, { path: '/pharmacy/settings/users', label: 'Users & Roles' }] },
+    { path: '/pharmacy/settings/options', label: 'Settings', icon: Icons.settings, children: [{ path: '/pharmacy/settings/options', label: 'Options' }, { path: '/pharmacy/settings/users', label: 'Users & Roles' }, { path: '/pharmacy/settings/platform', label: 'Platform' }] },
   ] }
 ]
 
